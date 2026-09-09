@@ -33,30 +33,11 @@ jobs:
         run: |
           pip install buildozer==1.5.0 cython==0.29.33
       
-      - name: Install Android SDK Command Line Tools
-        run: |
-          ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
-          mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
-          cd $ANDROID_SDK_ROOT/cmdline-tools
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
-          unzip -q commandlinetools-linux-11076708_latest.zip
-          mv cmdline-tools latest
-          rm commandlinetools-linux-11076708_latest.zip
-          
-          # Symlink create karo - buildozer yahan dhundhta hai
-          mkdir -p $ANDROID_SDK_ROOT/tools
-          ln -sf $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager $ANDROID_SDK_ROOT/tools/bin/sdkmanager 2>/dev/null || true
-          
-          # Alternative: directory copy
-          mkdir -p $ANDROID_SDK_ROOT/tools/bin
-          cp $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager $ANDROID_SDK_ROOT/tools/bin/sdkmanager 2>/dev/null || true
-      
       - name: Accept Android SDK licenses
         run: |
-          ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
-          mkdir -p $ANDROID_SDK_ROOT/licenses
-          echo -e "\n8933bad161af4178b1185d1a37fbf41ea5269c55\n" > $ANDROID_SDK_ROOT/licenses/android-sdk-license
-          echo -e "\nd56f5187479451eabf01fb78af6dfcb131a6481e\n" > $ANDROID_SDK_ROOT/licenses/android-sdk-preview-license
+          mkdir -p $ANDROID_HOME/licenses
+          echo -e "\n8933bad161af4178b1185d1a37fbf41ea5269c55\n" > $ANDROID_HOME/licenses/android-sdk-license
+          echo -e "\nd56f5187479451eabf01fb78af6dfcb131a6481e\n" > $ANDROID_HOME/licenses/android-sdk-preview-license
       
       - name: Fix buildozer spec
         run: |
@@ -67,10 +48,14 @@ jobs:
           sed -i 's/plyer==2.1.0/plyer/' buildozer.spec
           sed -i 's/pillow==10.0.0/pillow/' buildozer.spec
           sed -i 's/android.api = 31/android.api = 30/' buildozer.spec
+          sed -i 's/android.ndk = 25b/android.ndk = 27b/' buildozer.spec
       
       - name: Build APK
         run: |
           cd frontend
+          export ANDROID_HOME=/usr/local/lib/android/sdk
+          export ANDROID_SDK_ROOT=/usr/local/lib/android/sdk
+          export ANDROID_NDK_HOME=/usr/local/lib/android/sdk/ndk/27.3.13750724
           buildozer android debug
       
       - name: Upload APK
