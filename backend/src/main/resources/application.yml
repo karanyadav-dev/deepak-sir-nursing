@@ -1,0 +1,87 @@
+spring:
+  application:
+    name: deepak-sir-backend
+  
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/deepaksir}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:parth@123}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+      validation-timeout: 5000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+  
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
+        jdbc:
+          batch_size: 20
+    show-sql: false
+    open-in-view: false
+  
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 60000
+      lettuce:
+        pool:
+          max-active: 10
+          max-idle: 5
+          min-idle: 2
+  
+  servlet:
+    multipart:
+      max-file-size: ${AI_MAX_IMAGE_SIZE:5242880}
+      max-request-size: ${AI_MAX_IMAGE_SIZE:5242880}
+      enabled: true
+
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+jwt:
+  secret: ${JWT_SECRET:deepak-sir-jwt-secret-key-change-in-production-2024}
+  expiration: ${JWT_EXPIRATION:86400000}
+  refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
+
+ai:
+  provider: ${AI_PROVIDER:openai}
+  api-key: ${AI_API_KEY:}
+  model: ${AI_MODEL:gpt-4-vision-preview}
+  text-model: ${AI_TEXT_MODEL:gpt-4}
+  vision-model: ${AI_VISION_MODEL:gpt-4-vision-preview}
+  max-tokens: ${AI_MAX_TOKENS:2000}
+  temperature: ${AI_TEMPERATURE:0.7}
+  timeout: ${AI_TIMEOUT:60000}
+  max-image-size: ${AI_MAX_IMAGE_SIZE:5242880}
+  allowed-image-types: jpg,jpeg,png,webp
+  max-requests-per-minute: ${AI_RATE_LIMIT_MINUTE:10}
+  max-requests-per-hour: ${AI_RATE_LIMIT_HOUR:100}
+  max-chats-per-user: ${AI_MAX_CHATS:50}
+
+storage:
+  type: ${STORAGE_TYPE:local}
+  local:
+    path: ${STORAGE_LOCAL_PATH:./uploads}
+
+app:
+  base-url: ${APP_BASE_URL:http://localhost:8080}
+
+logging:
+  level:
+    com.deepaksir: INFO
+    org.springframework.security: WARN
+    org.hibernate: WARN
+  file:
+    name: ./logs/deepak-sir.log

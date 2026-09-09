@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: deepaksir-postgres
+    environment:
+      POSTGRES_DB: deepaksir
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: deepaksir-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  backend:
+    build: ./backend
+    container_name: deepaksir-backend
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/deepaksir
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: your-secret-key-change-in-production
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./uploads:/app/uploads
+
+  admin:
+    build: ./admin
+    container_name: deepaksir-admin
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+
+volumes:
+  postgres_data:
+  redis_data:
