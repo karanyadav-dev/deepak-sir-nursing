@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Deepak Sir — Nursing Exam Preparation Platform
 
 Complete nursing competitive exam preparation platform with AI Assistant for NORCET, AIIMS Nursing, and other nursing exams.
@@ -16,3 +17,6 @@ Complete nursing competitive exam preparation platform with AI Assistant for NOR
 - 📴 Offline Support
 
 ## 🏗️ Architecture
+=======
+# deepak-sir-nursing
+>>>>>>> cdd73fa1ac10b2a207d83fa8699f585b74337e17

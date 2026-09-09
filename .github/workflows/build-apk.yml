@@ -1,0 +1,54 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential git zip unzip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
+      
+      - name: Install Python dependencies
+        run: |
+          pip install buildozer==1.5.0 cython==0.29.33
+      
+      - name: Fix buildozer spec
+        run: |
+          cd frontend
+          sed -i 's/kivy==2.3.1/kivy==2.2.1/' buildozer.spec
+          sed -i 's/requests==2.31.0/requests/' buildozer.spec
+          sed -i 's/httpx==0.25.0/httpx/' buildozer.spec
+          sed -i 's/plyer==2.1.0/plyer/' buildozer.spec
+          sed -i 's/pillow==10.0.0/pillow/' buildozer.spec
+      
+      - name: Build APK
+        run: |
+          cd frontend
+          buildozer android debug
+      
+      - name: Upload APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: deepaksir-apk
+          path: frontend/bin/*.apk
