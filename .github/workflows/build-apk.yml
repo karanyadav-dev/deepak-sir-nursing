@@ -33,11 +33,33 @@ jobs:
         run: |
           pip install buildozer==1.5.0 cython==0.29.33
       
+      - name: Setup Android SDK for buildozer
+        run: |
+          # Buildozer ke expected path par SDK setup karo
+          BUILDOZER_SDK=$HOME/.buildozer/android/platform/android-sdk
+          SYSTEM_SDK=/usr/local/lib/android/sdk
+          
+          # Symlink banao
+          mkdir -p $HOME/.buildozer/android/platform
+          rm -rf $BUILDOZER_SDK
+          ln -sf $SYSTEM_SDK $BUILDOZER_SDK
+          
+          # tools/bin/sdkmanager symlink
+          mkdir -p $BUILDOZER_SDK/tools/bin
+          ls $SYSTEM_SDK/cmdline-tools/latest/bin/ 2>/dev/null || ls $SYSTEM_SDK/cmdline-tools/*/bin/ 2>/dev/null || echo "No cmdline-tools found"
+          
+          # sdkmanager ka path dhundo aur symlink banao
+          SDKMANAGER=$(find $SYSTEM_SDK -name sdkmanager 2>/dev/null | head -1)
+          echo "Found sdkmanager at: $SDKMANAGER"
+          
+          if [ -n "$SDKMANAGER" ]; then
+            ln -sf $SDKMANAGER $BUILDOZER_SDK/tools/bin/sdkmanager
+          fi
+      
       - name: Accept Android SDK licenses
         run: |
           mkdir -p /usr/local/lib/android/sdk/licenses
           echo -e "\n8933bad161af4178b1185d1a37fbf41ea5269c55\n" > /usr/local/lib/android/sdk/licenses/android-sdk-license
-          echo -e "\nd56f5187479451eabf01fb78af6dfcb131a6481e\n" > /usr/local/lib/android/sdk/licenses/android-sdk-preview-license
           echo -e "\n24333f8a63b6825ea9c5514f83c2829b004d1fee\n" > /usr/local/lib/android/sdk/licenses/android-sdk-preview-license
       
       - name: Fix buildozer spec
@@ -51,20 +73,12 @@ jobs:
           sed -i 's/android.api = 31/android.api = 30/' buildozer.spec
           sed -i 's/android.ndk = 25b/android.ndk = 27b/' buildozer.spec
       
-      - name: Create symlink for buildozer
-        run: |
-          # Buildozer ko system SDK use karne ke liye symlink banao
-          mkdir -p $HOME/.buildozer/android/platform
-          ln -sf /usr/local/lib/android/sdk $HOME/.buildozer/android/platform/android-sdk
-          ln -sf /usr/local/lib/android/sdk/ndk/27.3.13750724 $HOME/.buildozer/android/platform/android-ndk-r27b
-      
       - name: Build APK
         run: |
           cd frontend
           export ANDROID_HOME=/usr/local/lib/android/sdk
           export ANDROID_SDK_ROOT=/usr/local/lib/android/sdk
           export ANDROID_NDK_HOME=/usr/local/lib/android/sdk/ndk/27.3.13750724
-          export PATH=$PATH:/usr/local/lib/android/sdk/platform-tools:/usr/local/lib/android/sdk/build-tools
           buildozer android debug
       
       - name: Upload APK
