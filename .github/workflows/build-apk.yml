@@ -35,18 +35,28 @@ jobs:
       
       - name: Install Android SDK Command Line Tools
         run: |
-          mkdir -p $HOME/.buildozer/android/platform/android-sdk/cmdline-tools
-          cd $HOME/.buildozer/android/platform/android-sdk/cmdline-tools
+          ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
+          mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
+          cd $ANDROID_SDK_ROOT/cmdline-tools
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
           unzip -q commandlinetools-linux-11076708_latest.zip
           mv cmdline-tools latest
           rm commandlinetools-linux-11076708_latest.zip
+          
+          # Symlink create karo - buildozer yahan dhundhta hai
+          mkdir -p $ANDROID_SDK_ROOT/tools
+          ln -sf $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager $ANDROID_SDK_ROOT/tools/bin/sdkmanager 2>/dev/null || true
+          
+          # Alternative: directory copy
+          mkdir -p $ANDROID_SDK_ROOT/tools/bin
+          cp $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager $ANDROID_SDK_ROOT/tools/bin/sdkmanager 2>/dev/null || true
       
       - name: Accept Android SDK licenses
         run: |
-          mkdir -p $HOME/.buildozer/android/platform/android-sdk/licenses
-          echo -e "\n8933bad161af4178b1185d1a37fbf41ea5269c55\n" > $HOME/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
-          echo -e "\nd56f5187479451eabf01fb78af6dfcb131a6481e\n" > $HOME/.buildozer/android/platform/android-sdk/licenses/android-sdk-preview-license
+          ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
+          mkdir -p $ANDROID_SDK_ROOT/licenses
+          echo -e "\n8933bad161af4178b1185d1a37fbf41ea5269c55\n" > $ANDROID_SDK_ROOT/licenses/android-sdk-license
+          echo -e "\nd56f5187479451eabf01fb78af6dfcb131a6481e\n" > $ANDROID_SDK_ROOT/licenses/android-sdk-preview-license
       
       - name: Fix buildozer spec
         run: |
