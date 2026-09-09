@@ -12,7 +12,7 @@ icon.filename = %(source.dir)s/app/assets/icon.png
 
 [android]
 permissions = INTERNET,ACCESS_NETWORK_STATE,CAMERA,READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE,READ_MEDIA_IMAGES,POST_NOTIFICATIONS,VIBRATE
-android.api = 30
+android.api = 34
 android.minapi = 21
 android.ndk = 25b
 android.arch = arm64-v8a,armeabi-v7a
