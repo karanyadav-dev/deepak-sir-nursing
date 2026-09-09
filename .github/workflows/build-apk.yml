@@ -70,7 +70,7 @@ jobs:
           sed -i 's/httpx==0.25.0/httpx/' buildozer.spec
           sed -i 's/plyer==2.1.0/plyer/' buildozer.spec
           sed -i 's/pillow==10.0.0/pillow/' buildozer.spec
-          sed -i 's/android.api = 31/android.api = 30/' buildozer.spec
+          sed -i 's/android.api = 31/android.api = 34/' buildozer.spec
           sed -i 's/android.ndk = 25b/android.ndk = 27b/' buildozer.spec
       
       - name: Build APK
