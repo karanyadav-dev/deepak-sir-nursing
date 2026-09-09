@@ -33,6 +33,15 @@ jobs:
         run: |
           pip install buildozer==1.5.0 cython==0.29.33
       
+      - name: Install Android SDK Command Line Tools
+        run: |
+          mkdir -p $HOME/.buildozer/android/platform/android-sdk/cmdline-tools
+          cd $HOME/.buildozer/android/platform/android-sdk/cmdline-tools
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q commandlinetools-linux-11076708_latest.zip
+          mv cmdline-tools latest
+          rm commandlinetools-linux-11076708_latest.zip
+      
       - name: Accept Android SDK licenses
         run: |
           mkdir -p $HOME/.buildozer/android/platform/android-sdk/licenses
@@ -48,7 +57,6 @@ jobs:
           sed -i 's/plyer==2.1.0/plyer/' buildozer.spec
           sed -i 's/pillow==10.0.0/pillow/' buildozer.spec
           sed -i 's/android.api = 31/android.api = 30/' buildozer.spec
-          sed -i 's/android.ndk = 25b/android.ndk = 25b/' buildozer.spec
       
       - name: Build APK
         run: |
