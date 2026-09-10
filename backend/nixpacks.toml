@@ -1,0 +1,8 @@
+[phases.setup]
+nixPkgs = ["openjdk17", "maven", "postgresql"]
+
+[phases.build]
+cmds = ["mvn clean package -DskipTests"]
+
+[start]
+cmd = "java -Dserver.port=$PORT -jar target/*.jar"
