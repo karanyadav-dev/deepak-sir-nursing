@@ -1,6 +1,6 @@
 use std::fs;
-use tauri::{Window, Wry};
-use rusqlite::{Connection, params};
+use tauri::Manager;
+use rusqlite::Connection;
 use std::sync::Mutex;
 
 pub struct DbState(pub Mutex<Connection>);
@@ -31,7 +31,7 @@ pub fn delete_file(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn open_second_window(app: tauri::AppHandle<Wry>) -> Result<(), String> {
+pub fn open_second_window(app: tauri::AppHandle) -> Result<(), String> {
     tauri::WindowBuilder::new(
         &app,
         "projector",
@@ -45,17 +45,11 @@ pub fn open_second_window(app: tauri::AppHandle<Wry>) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn close_second_window(app: tauri::AppHandle<Wry>) -> Result<(), String> {
+pub fn close_second_window(app: tauri::AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_window("projector") {
         window.close().map_err(|e| e.to_string())?;
     }
     Ok(())
-}
-
-#[tauri::command]
-pub fn get_displays() -> Result<Vec<String>, String> {
-    // Display detection - simplified version
-    Ok(vec!["primary".to_string()])
 }
 
 #[tauri::command]
@@ -83,23 +77,4 @@ pub fn init_sqlite(state: tauri::State<DbState>) -> Result<(), String> {
         );
     ").map_err(|e| e.to_string())?;
     Ok(())
-}
-
-#[tauri::command]
-pub fn execute_query(state: tauri::State<DbState>, query: String, params: Vec<String>) -> Result<String, String> {
-    let conn = state.0.lock().map_err(|e| e.to_string())?;
-    let mut stmt = conn.prepare(&query).map_err(|e| e.to_string())?;
-    let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
-    let mut rows = stmt.query(&param_refs[..]).map_err(|e| e.to_string())?;
-    let mut result = Vec::new();
-    while let Some(row) = rows.next().map_err(|e| e.to_string())? {
-        let mut map = serde_json::Map::new();
-        for i in 0..row.column_count().map_err(|e| e.to_string())? {
-            let name = row.column_name(i).unwrap_or("").to_string();
-            let value = row.get::<_, String>(i).unwrap_or_default();
-            map.insert(name, serde_json::Value::String(value));
-        }
-        result.push(serde_json::Value::Object(map));
-    }
-    Ok(serde_json::to_string(&result).map_err(|e| e.to_string())?)
 }

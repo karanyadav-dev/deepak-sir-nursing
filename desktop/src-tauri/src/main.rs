@@ -12,9 +12,7 @@ fn main() {
             commands::delete_file,
             commands::open_second_window,
             commands::close_second_window,
-            commands::get_displays,
             commands::init_sqlite,
-            commands::execute_query,
         ])
         .setup(|app| {
             window::setup(app)?;

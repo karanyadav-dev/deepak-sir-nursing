@@ -1,6 +1,6 @@
 ﻿import { Link } from 'react-router-dom';
 import { useUserStore } from '../store/userStore';
-import { BookOpen, Presentation, FileText, Video, Box, Settings } from 'lucide-react';
+import { BookOpen, Presentation, FileText, Video, Box, Settings, LogOut } from 'lucide-react';
 
 export default function Dashboard() {
   const { user, logout } = useUserStore();
@@ -17,23 +17,35 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow p-4 flex justify-between items-center">
-        <h1 className="text-xl font-semibold">Deepak Sir Nursing</h1>
         <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-600">{user?.fullName || 'Teacher'}</span>
-          <button onClick={logout} className="text-sm text-red-600 hover:underline">Logout</button>
+          <img src="/logo.png" alt="Logo" className="w-12 h-12 rounded-full" />
+          <div>
+            <h1 className="text-lg font-bold text-blue-600">Deepak Sir Nursing</h1>
+            <p className="text-xs text-gray-500">Your Success, Our Mission</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-gray-600">{user?.fullName}</span>
+          <button 
+            onClick={logout} 
+            className="text-sm text-red-600 hover:underline flex items-center gap-1"
+          >
+            <LogOut size={14} />
+            Logout
+          </button>
         </div>
       </header>
       <main className="p-6">
         <h2 className="text-2xl font-bold mb-6">Dashboard</h2>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {quickActions.map((action) => (
             <Link
               key={action.label}
               to={action.to}
-              className={action.color + ' text-white p-6 rounded-lg shadow hover:shadow-lg transition-shadow flex flex-col items-center justify-center gap-2'}
+              className={`${action.color} text-white p-6 rounded-lg shadow hover:shadow-lg transition-shadow flex flex-col items-center justify-center gap-2`}
             >
               <action.icon size={32} />
-              <span className="font-medium text-sm text-center">{action.label}</span>
+              <span className="font-medium">{action.label}</span>
             </Link>
           ))}
         </div>
