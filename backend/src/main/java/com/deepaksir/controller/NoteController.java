@@ -10,7 +10,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -20,46 +19,57 @@ public class NoteController {
 
     private final NoteService noteService;
 
-    @GetMapping("/lesson/{lessonId}")
-    public ResponseEntity<ApiResponse<List<Note>>> getNotesByLesson(@PathVariable UUID lessonId) {
-        List<Note> notes = noteService.getNotesByLesson(lessonId);
+    @GetMapping
+    public ResponseEntity<ApiResponse<List<Note>>> getPublishedNotes() {
+        List<Note> notes = noteService.getPublishedNotes();
         return ResponseEntity.ok(ApiResponse.success("Notes retrieved", notes));
     }
 
-    @GetMapping("/course/{courseId}")
-    public ResponseEntity<ApiResponse<List<Note>>> getNotesByCourse(@PathVariable UUID courseId) {
-        List<Note> notes = noteService.getNotesByCourse(courseId);
-        return ResponseEntity.ok(ApiResponse.success("Notes retrieved", notes));
+    @GetMapping("/all")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('INSTRUCTOR')")
+    public ResponseEntity<ApiResponse<List<Note>>> getAllNotes() {
+        List<Note> notes = noteService.getAllNotes();
+        return ResponseEntity.ok(ApiResponse.success("All notes retrieved", notes));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<Note>> getNote(@PathVariable UUID id) {
-        Note note = noteService.getNote(id);
+    public ResponseEntity<ApiResponse<Note>> getNoteById(@PathVariable UUID id) {
+        Note note = noteService.getNoteById(id);
         return ResponseEntity.ok(ApiResponse.success("Note retrieved", note));
     }
 
-    @PostMapping
-    @PreAuthorize("hasRole('ADMIN') or hasRole('INSTRUCTOR') or hasRole('TEACHER')")
-    public ResponseEntity<ApiResponse<Note>> createNote(@RequestBody Map<String, Object> request) {
-        String title = (String) request.get("title");
-        String content = (String) request.getOrDefault("content", "");
-        String fileUrl = (String) request.getOrDefault("fileUrl", null);
-        UUID lessonId = request.get("lessonId") != null ? UUID.fromString((String) request.get("lessonId")) : null;
-        UUID courseId = request.get("courseId") != null ? UUID.fromString((String) request.get("courseId")) : null;
+    @GetMapping("/subject/{subjectId}")
+    public ResponseEntity<ApiResponse<List<Note>>> getNotesBySubject(@PathVariable UUID subjectId) {
+        List<Note> notes = noteService.getNotesBySubject(subjectId);
+        return ResponseEntity.ok(ApiResponse.success("Notes retrieved", notes));
+    }
 
-        Note note = noteService.createNote(title, content, fileUrl, lessonId, courseId);
+    @GetMapping("/topic/{topicId}")
+    public ResponseEntity<ApiResponse<List<Note>>> getNotesByTopic(@PathVariable UUID topicId) {
+        List<Note> notes = noteService.getNotesByTopic(topicId);
+        return ResponseEntity.ok(ApiResponse.success("Notes retrieved", notes));
+    }
+
+    @PostMapping
+    @PreAuthorize("hasRole('ADMIN') or hasRole('INSTRUCTOR')")
+    public ResponseEntity<ApiResponse<Note>> createNote(
+            @RequestBody Note note,
+            @RequestParam(required = false) UUID subjectId,
+            @RequestParam(required = false) UUID topicId) {
+
+        Note created = noteService.createNote(note, subjectId, topicId);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Note created", note));
+                .body(ApiResponse.success("Note created", created));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('INSTRUCTOR') or hasRole('TEACHER')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('INSTRUCTOR')")
     public ResponseEntity<ApiResponse<Note>> updateNote(
             @PathVariable UUID id,
-            @RequestBody Map<String, String> request) {
+            @RequestBody Note note) {
 
-        Note note = noteService.updateNote(id, request.get("title"), request.get("content"));
-        return ResponseEntity.ok(ApiResponse.success("Note updated", note));
+        Note updated = noteService.updateNote(id, note);
+        return ResponseEntity.ok(ApiResponse.success("Note updated", updated));
     }
 
     @DeleteMapping("/{id}")

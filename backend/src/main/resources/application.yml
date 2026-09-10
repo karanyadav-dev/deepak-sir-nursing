@@ -1,49 +1,52 @@
+server:
+  port: ${PORT:8080}
+  shutdown: graceful
+
+spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
 spring:
   application:
     name: deepak-sir-backend
-  
+
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/deepaksir}
     username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:parth@123}
+    password: parth@123
     driver-class-name: org.postgresql.Driver
-    hikari:
-      maximum-pool-size: 10
-      minimum-idle: 5
-      connection-timeout: 30000
-      validation-timeout: 5000
-      idle-timeout: 600000
-      max-lifetime: 1800000
-  
+
   jpa:
     hibernate:
       ddl-auto: update
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-        format_sql: false
-        jdbc:
-          batch_size: 20
+        format_sql: true
     show-sql: false
-    open-in-view: false
-  
+
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:}
       timeout: 60000
-      lettuce:
-        pool:
-          max-active: 10
-          max-idle: 5
-          min-idle: 2
-  
+
   servlet:
     multipart:
-      max-file-size: ${AI_MAX_IMAGE_SIZE:5242880}
-      max-request-size: ${AI_MAX_IMAGE_SIZE:5242880}
-      enabled: true
+      max-file-size: 500MB
+      max-request-size: 500MB
+
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:your-email@gmail.com}
+    password: ${MAIL_PASSWORD:your-app-password}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
 
 server:
   port: 8080
@@ -51,9 +54,9 @@ server:
     context-path: /api
 
 jwt:
-  secret: ${JWT_SECRET:deepak-sir-jwt-secret-key-change-in-production-2024}
-  expiration: ${JWT_EXPIRATION:86400000}
-  refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
+  secret: ${JWT_SECRET:your-256-bit-secret-key-here-change-in-production}
+  expiration: 86400000
+  refresh-expiration: 604800000
 
 ai:
   provider: ${AI_PROVIDER:openai}
@@ -69,19 +72,42 @@ ai:
   max-requests-per-minute: ${AI_RATE_LIMIT_MINUTE:10}
   max-requests-per-hour: ${AI_RATE_LIMIT_HOUR:100}
   max-chats-per-user: ${AI_MAX_CHATS:50}
+  system-prompt: |
+    You are a knowledgeable Nursing Education Assistant for the "Deepak Sir" 
+    nursing exam preparation platform. Your role is to help nursing students 
+    learn and prepare for competitive exams like NORCET, AIIMS Nursing, etc.
+    
+    Guidelines:
+    1. Provide educational information about nursing, medical topics, anatomy, 
+       physiology, pharmacology, and related subjects.
+    2. Use simple language with Hindi/Hinglish terms where helpful.
+    3. Structure responses with clear headings, bullet points, and important markers.
+    4. Include nursing considerations and exam-relevant points.
+    5. NEVER provide definitive medical diagnoses or prescriptions.
+    6. For emergencies, always advise immediate professional medical help.
+    7. Encourage students to refer to their textbooks and faculty for academic clarity.
+    8. Be supportive, encouraging, and exam-focused.
+  safety-prompt: |
+    IMPORTANT SAFETY GUIDELINES:
+    - Do not claim to diagnose any medical condition.
+    - Do not prescribe medications or change dosages.
+    - Do not advise stopping prescribed treatments.
+    - If symptoms suggest emergency, advise immediate medical attention.
+    - Always add educational disclaimer when discussing treatments.
+    - Focus on nursing education, not medical practice.
 
 storage:
   type: ${STORAGE_TYPE:local}
   local:
     path: ${STORAGE_LOCAL_PATH:./uploads}
 
+payment:
+  razorpay:
+    key-id: ${RAZORPAY_KEY_ID:your-key-id}
+    key-secret: ${RAZORPAY_KEY_SECRET:your-key-secret}
+
+google:
+  client-id: ${GOOGLE_CLIENT_ID:your-google-client-id}
+
 app:
   base-url: ${APP_BASE_URL:http://localhost:8080}
-
-logging:
-  level:
-    com.deepaksir: INFO
-    org.springframework.security: WARN
-    org.hibernate: WARN
-  file:
-    name: ./logs/deepak-sir.log

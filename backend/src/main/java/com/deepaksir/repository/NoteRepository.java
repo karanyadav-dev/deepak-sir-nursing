@@ -10,9 +10,11 @@ import java.util.UUID;
 @Repository
 public interface NoteRepository extends JpaRepository<Note, UUID> {
 
-    List<Note> findByLessonIdOrderByCreatedAtDesc(UUID lessonId);
+    List<Note> findByPublishedTrueAndActiveTrueOrderByCreatedAtDesc();
 
-    List<Note> findByCourseIdOrderByCreatedAtDesc(UUID courseId);
+    List<Note> findBySubjectIdAndPublishedTrueAndActiveTrue(UUID subjectId);
 
-    List<Note> findByTitleContainingIgnoreCase(String search);
+    List<Note> findByTopicIdAndPublishedTrueAndActiveTrue(UUID topicId);
+
+    List<Note> findByActiveTrueOrderByCreatedAtDesc();
 }

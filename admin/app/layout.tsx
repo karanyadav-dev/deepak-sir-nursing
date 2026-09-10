@@ -5,8 +5,11 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Deepak Sir Admin Panel',
+  title: 'Deepak Sir Nursing - Admin Panel',
   description: 'Admin panel for Deepak Sir Nursing Exam Preparation Platform',
+  icons: {
+    icon: '/logo.png',
+  },
 }
 
 export default function RootLayout({

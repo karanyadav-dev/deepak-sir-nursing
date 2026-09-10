@@ -5,7 +5,7 @@ package.domain = com.deepaksir
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,ttf,json
 version = 1.0.0
-requirements = python3,kivy==2.3.1,kivymd==1.1.1,requests==2.31.0,httpx==0.25.0,plyer==2.1.0,pillow==10.0.0
+requirements = python3,kivy==2.2.1,kivymd==1.1.1,requests,httpx,plyer,pillow
 orientation = portrait
 fullscreen = 0
 icon.filename = %(source.dir)s/app/assets/icon.png

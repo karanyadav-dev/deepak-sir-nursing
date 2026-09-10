@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { authAPI } from '@/app/services/api';
+import Image from 'next/image';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -35,11 +36,21 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100">
+      <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
         <div className="text-center mb-8">
+          <div className="flex justify-center mb-4">
+            <Image
+              src="/logo.png"
+              alt="Deepak Sir Nursing"
+              width={120}
+              height={120}
+              className="rounded-full"
+            />
+          </div>
           <h1 className="text-3xl font-bold text-blue-600">Deepak Sir</h1>
-          <p className="text-gray-600 mt-2">Admin Panel Login</p>
+          <p className="text-red-500 font-semibold mt-1">NURSING</p>
+          <p className="text-gray-500 text-sm mt-2">Admin Panel Login</p>
         </div>
 
         {error && (

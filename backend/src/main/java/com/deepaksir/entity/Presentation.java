@@ -11,8 +11,8 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "notes")
-public class Note {
+@Table(name = "presentations")
+public class Presentation {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -21,22 +21,24 @@ public class Note {
     @Column(nullable = false, length = 200)
     private String title;
 
-    @Column(columnDefinition = "TEXT")
-    private String content;
+    @Column(length = 500)
+    private String description;
+
+    @Column(name = "file_url", nullable = false, length = 500)
+    private String fileUrl;
+
+    @Column(name = "file_size")
+    private Long fileSize = 0L;
+
+    @Column(name = "slide_count")
+    private Integer slideCount = 0;
 
     @Column(length = 500)
-    private String pdfUrl;
-
-    @Column(length = 500)
-    private String imageUrl;
+    private String thumbnailUrl;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "subject_id")
     private Subject subject;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "topic_id")
-    private Topic topic;
 
     @Column(nullable = false)
     private boolean published = false;

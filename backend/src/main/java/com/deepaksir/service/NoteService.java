@@ -1,8 +1,12 @@
 package com.deepaksir.service;
 
 import com.deepaksir.entity.Note;
+import com.deepaksir.entity.Subject;
+import com.deepaksir.entity.Topic;
 import com.deepaksir.exception.ApiException;
 import com.deepaksir.repository.NoteRepository;
+import com.deepaksir.repository.SubjectRepository;
+import com.deepaksir.repository.TopicRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,58 +19,69 @@ import java.util.UUID;
 public class NoteService {
 
     private final NoteRepository noteRepository;
+    private final SubjectRepository subjectRepository;
+    private final TopicRepository topicRepository;
 
-    @Transactional
-    public Note createNote(String title, String content, String fileUrl, UUID lessonId, UUID courseId) {
-        Note note = new Note();
-        note.setTitle(title);
-        note.setContent(content);
-        note.setFileUrl(fileUrl);
-
-        if (lessonId != null) {
-            com.deepaksir.entity.Lesson lesson = new com.deepaksir.entity.Lesson();
-            lesson.setId(lessonId);
-            note.setLesson(lesson);
-        }
-
-        if (courseId != null) {
-            com.deepaksir.entity.Course course = new com.deepaksir.entity.Course();
-            course.setId(courseId);
-            note.setCourse(course);
-        }
-
-        return noteRepository.save(note);
+    @Transactional(readOnly = true)
+    public List<Note> getPublishedNotes() {
+        return noteRepository.findByPublishedTrueAndActiveTrueOrderByCreatedAtDesc();
     }
 
     @Transactional(readOnly = true)
-    public List<Note> getNotesByLesson(UUID lessonId) {
-        return noteRepository.findByLessonIdOrderByCreatedAtDesc(lessonId);
+    public List<Note> getAllNotes() {
+        return noteRepository.findByActiveTrueOrderByCreatedAtDesc();
     }
 
     @Transactional(readOnly = true)
-    public List<Note> getNotesByCourse(UUID courseId) {
-        return noteRepository.findByCourseIdOrderByCreatedAtDesc(courseId);
-    }
-
-    @Transactional(readOnly = true)
-    public Note getNote(UUID id) {
+    public Note getNoteById(UUID id) {
         return noteRepository.findById(id)
                 .orElseThrow(() -> new ApiException("Note not found"));
     }
 
+    @Transactional(readOnly = true)
+    public List<Note> getNotesBySubject(UUID subjectId) {
+        return noteRepository.findBySubjectIdAndPublishedTrueAndActiveTrue(subjectId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Note> getNotesByTopic(UUID topicId) {
+        return noteRepository.findByTopicIdAndPublishedTrueAndActiveTrue(topicId);
+    }
+
     @Transactional
-    public Note updateNote(UUID id, String title, String content) {
+    public Note createNote(Note note, UUID subjectId, UUID topicId) {
+        if (subjectId != null) {
+            Subject subject = subjectRepository.findById(subjectId)
+                    .orElseThrow(() -> new ApiException("Subject not found"));
+            note.setSubject(subject);
+        }
+        if (topicId != null) {
+            Topic topic = topicRepository.findById(topicId)
+                    .orElseThrow(() -> new ApiException("Topic not found"));
+            note.setTopic(topic);
+        }
+        return noteRepository.save(note);
+    }
+
+    @Transactional
+    public Note updateNote(UUID id, Note updated) {
         Note note = noteRepository.findById(id)
                 .orElseThrow(() -> new ApiException("Note not found"));
 
-        if (title != null) note.setTitle(title);
-        if (content != null) note.setContent(content);
+        if (updated.getTitle() != null) note.setTitle(updated.getTitle());
+        if (updated.getContent() != null) note.setContent(updated.getContent());
+        if (updated.getPdfUrl() != null) note.setPdfUrl(updated.getPdfUrl());
+        if (updated.getImageUrl() != null) note.setImageUrl(updated.getImageUrl());
+        note.setPublished(updated.isPublished());
 
         return noteRepository.save(note);
     }
 
     @Transactional
     public void deleteNote(UUID id) {
-        noteRepository.deleteById(id);
+        Note note = noteRepository.findById(id)
+                .orElseThrow(() -> new ApiException("Note not found"));
+        note.setActive(false);
+        noteRepository.save(note);
     }
 }
