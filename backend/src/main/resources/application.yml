@@ -7,16 +7,13 @@ server:
 spring:
   lifecycle:
     timeout-per-shutdown-phase: 30s
-
   application:
     name: deepak-sir-backend
-
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/deepaksir}
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
-
   jpa:
     hibernate:
       ddl-auto: update
@@ -25,24 +22,21 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
     show-sql: false
-
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:}
       timeout: 60000
-
   servlet:
     multipart:
       max-file-size: 500MB
       max-request-size: 500MB
-
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
     port: ${MAIL_PORT:587}
-    username: ${MAIL_USERNAME:your-email@gmail.com}
-    password: ${MAIL_PASSWORD:your-app-password}
+    username: ${MAIL_USERNAME:noreply@deepaksir.com}
+    password: ${MAIL_PASSWORD:}
     properties:
       mail:
         smtp:
@@ -51,7 +45,7 @@ spring:
             enable: true
 
 jwt:
-  secret: ${JWT_SECRET:your-256-bit-secret-key-here-change-in-production-make-it-64-chars}
+  secret: ${JWT_SECRET:your-256-bit-secret-key-here-change-in-production-make-64-chars}
   expiration: 86400000
   refresh-expiration: 604800000
 
@@ -70,11 +64,13 @@ ai:
   max-requests-per-hour: ${AI_RATE_LIMIT_HOUR:100}
   max-chats-per-user: ${AI_MAX_CHATS:50}
   system-prompt: |
-    You are a knowledgeable Nursing Education Assistant for the "Deepak Sir" 
-    nursing exam preparation platform.
+    You are a knowledgeable Nursing Education Assistant for Deepak Sir Nursing platform.
+    Provide educational info about nursing, medical topics, anatomy, physiology, pharmacology.
+    NEVER provide medical diagnoses or prescriptions. Be supportive and exam-focused.
   safety-prompt: |
     IMPORTANT SAFETY GUIDELINES:
     - Do not claim to diagnose any medical condition.
+    - Do not prescribe medications or change dosages.
     - Focus on nursing education, not medical practice.
 
 storage:
