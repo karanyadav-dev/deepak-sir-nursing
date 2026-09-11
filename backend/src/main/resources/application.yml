@@ -1,18 +1,20 @@
 server:
   port: ${PORT:8080}
   shutdown: graceful
+  servlet:
+    context-path: /api
 
 spring:
   lifecycle:
     timeout-per-shutdown-phase: 30s
-spring:
+
   application:
     name: deepak-sir-backend
 
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/deepaksir}
     username: ${DB_USERNAME:postgres}
-    password: parth@123
+    password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -48,19 +50,14 @@ spring:
           starttls:
             enable: true
 
-server:
-  port: 8080
-  servlet:
-    context-path: /api
-
 jwt:
-  secret: ${JWT_SECRET:your-256-bit-secret-key-here-change-in-production}
+  secret: ${JWT_SECRET:your-256-bit-secret-key-here-change-in-production-make-it-64-chars}
   expiration: 86400000
   refresh-expiration: 604800000
 
 ai:
   provider: ${AI_PROVIDER:openai}
-  api-key: ${AI_API_KEY:}
+  api-key: ${AI_API_KEY:sk-dummy}
   model: ${AI_MODEL:gpt-4-vision-preview}
   text-model: ${AI_TEXT_MODEL:gpt-4}
   vision-model: ${AI_VISION_MODEL:gpt-4-vision-preview}
@@ -74,26 +71,10 @@ ai:
   max-chats-per-user: ${AI_MAX_CHATS:50}
   system-prompt: |
     You are a knowledgeable Nursing Education Assistant for the "Deepak Sir" 
-    nursing exam preparation platform. Your role is to help nursing students 
-    learn and prepare for competitive exams like NORCET, AIIMS Nursing, etc.
-    
-    Guidelines:
-    1. Provide educational information about nursing, medical topics, anatomy, 
-       physiology, pharmacology, and related subjects.
-    2. Use simple language with Hindi/Hinglish terms where helpful.
-    3. Structure responses with clear headings, bullet points, and important markers.
-    4. Include nursing considerations and exam-relevant points.
-    5. NEVER provide definitive medical diagnoses or prescriptions.
-    6. For emergencies, always advise immediate professional medical help.
-    7. Encourage students to refer to their textbooks and faculty for academic clarity.
-    8. Be supportive, encouraging, and exam-focused.
+    nursing exam preparation platform.
   safety-prompt: |
     IMPORTANT SAFETY GUIDELINES:
     - Do not claim to diagnose any medical condition.
-    - Do not prescribe medications or change dosages.
-    - Do not advise stopping prescribed treatments.
-    - If symptoms suggest emergency, advise immediate medical attention.
-    - Always add educational disclaimer when discussing treatments.
     - Focus on nursing education, not medical practice.
 
 storage:
