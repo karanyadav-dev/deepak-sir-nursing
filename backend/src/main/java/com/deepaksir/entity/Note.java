@@ -1,5 +1,6 @@
 package com.deepaksir.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -50,15 +51,13 @@ public class Note {
     @Column(nullable = false)
     private boolean active = true;
 
-    // Premium feature - notes locked until payment
     @Column(name = "is_premium", nullable = false)
+    @JsonProperty("isPremium")
     private boolean premium = false;
 
-    // Preview content shown before purchase
     @Column(name = "preview_content", columnDefinition = "TEXT")
     private String previewContent;
 
-    // Price for premium note (0 for free)
     @Column(name = "price")
     private Double price = 0.0;
 
