@@ -17,4 +17,6 @@ public interface NoteRepository extends JpaRepository<Note, UUID> {
     List<Note> findByTopicIdAndPublishedTrueAndActiveTrue(UUID topicId);
 
     List<Note> findByActiveTrueOrderByCreatedAtDesc();
+
+    List<Note> findByPremiumTrueAndPublishedTrueAndActiveTrue();
 }

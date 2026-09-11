@@ -4,7 +4,7 @@ class Config:
     """Application configuration"""
     
     # API Configuration
-    API_BASE_URL = os.getenv('API_BASE_URL', 'http://localhost:8080/api')
+    API_BASE_URL = os.getenv('API_BASE_URL', 'https://deepak-sir-nursing-production.up.railway.app/api')
     
     # App Configuration
     APP_NAME = "Deepak Sir"

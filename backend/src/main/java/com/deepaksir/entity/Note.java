@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
+
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -11,7 +12,12 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "notes")
+@Table(name = "notes", indexes = {
+    @Index(name = "idx_notes_subject", columnList = "subject_id"),
+    @Index(name = "idx_notes_topic", columnList = "topic_id"),
+    @Index(name = "idx_notes_published", columnList = "published"),
+    @Index(name = "idx_notes_premium", columnList = "is_premium")
+})
 public class Note {
 
     @Id
@@ -24,10 +30,10 @@ public class Note {
     @Column(columnDefinition = "TEXT")
     private String content;
 
-    @Column(length = 500)
+    @Column(name = "pdf_url", length = 500)
     private String pdfUrl;
 
-    @Column(length = 500)
+    @Column(name = "image_url", length = 500)
     private String imageUrl;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -43,6 +49,18 @@ public class Note {
 
     @Column(nullable = false)
     private boolean active = true;
+
+    // Premium feature - notes locked until payment
+    @Column(name = "is_premium", nullable = false)
+    private boolean premium = false;
+
+    // Preview content shown before purchase
+    @Column(name = "preview_content", columnDefinition = "TEXT")
+    private String previewContent;
+
+    // Price for premium note (0 for free)
+    @Column(name = "price")
+    private Double price = 0.0;
 
     @Column(nullable = false)
     private LocalDateTime createdAt;
