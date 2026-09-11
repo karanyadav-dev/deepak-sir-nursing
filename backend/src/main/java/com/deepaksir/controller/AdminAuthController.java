@@ -3,38 +3,34 @@ package com.deepaksir.controller;
 import com.deepaksir.dto.ApiResponse;
 import com.deepaksir.dto.AuthRequest;
 import com.deepaksir.dto.AuthResponse;
+import com.deepaksir.dto.UserDto;
 import com.deepaksir.entity.User;
 import com.deepaksir.repository.UserRepository;
 import com.deepaksir.security.JwtService;
-import com.deepaksir.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/admin/auth")
 @RequiredArgsConstructor
 public class AdminAuthController {
 
-    private final AuthService authService;
     private final UserRepository userRepository;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
 
-    /**
-     * Admin-only login. Student cannot login through this endpoint.
-     */
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<AuthResponse>> adminLogin(
             @Valid @RequestBody AuthRequest request) {
 
-        // Authenticate
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.getEmail(),
@@ -45,7 +41,6 @@ public class AdminAuthController {
         User user = userRepository.findByEmail(request.getEmail().toLowerCase())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Check ADMIN role
         boolean isAdmin = user.getRoles().stream()
                 .anyMatch(role -> role.getName().name().equals("ADMIN")
                         || role.getName().name().equals("INSTRUCTOR"));
@@ -57,18 +52,27 @@ public class AdminAuthController {
         String accessToken = jwtService.generateAccessToken(user);
         String refreshToken = jwtService.generateRefreshToken(user);
 
+        UserDto userDto = UserDto.builder()
+                .id(user.getId())
+                .fullName(user.getFullName())
+                .email(user.getEmail())
+                .phone(user.getPhone())
+                .emailVerified(user.isEmailVerified())
+                .phoneVerified(user.isPhoneVerified())
+                .roles(user.getRoles().stream()
+                        .map(r -> r.getName().name())
+                        .collect(Collectors.toList()))
+                .build();
+
         AuthResponse response = AuthResponse.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
-                .user(authService.mapToUserDto(user))
+                .user(userDto)
                 .build();
 
         return ResponseEntity.ok(ApiResponse.success("Admin login successful", response));
     }
 
-    /**
-     * Verify admin token.
-     */
     @GetMapping("/verify")
     public ResponseEntity<ApiResponse<Map<String, Object>>> verifyAdmin(
             @RequestHeader("Authorization") String authHeader) {
@@ -80,7 +84,7 @@ public class AdminAuthController {
         String token = authHeader.substring(7);
         String userId = jwtService.extractUserId(token);
 
-        User user = userRepository.findById(java.util.UUID.fromString(userId))
+        User user = userRepository.findById(UUID.fromString(userId))
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         boolean isAdmin = user.getRoles().stream()
@@ -91,6 +95,6 @@ public class AdminAuthController {
         }
 
         return ResponseEntity.ok(ApiResponse.success("Admin verified",
-                Map.of("isAdmin", true, "user", user.getEmail())));
+                Map.of("isAdmin", true, "email", user.getEmail())));
     }
 }

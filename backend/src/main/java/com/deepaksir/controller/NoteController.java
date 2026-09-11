@@ -2,11 +2,14 @@ package com.deepaksir.controller;
 
 import com.deepaksir.dto.ApiResponse;
 import com.deepaksir.entity.Note;
+import com.deepaksir.entity.User;
+import com.deepaksir.dto.UserPrincipal;
 import com.deepaksir.service.NoteService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -19,39 +22,47 @@ public class NoteController {
 
     private final NoteService noteService;
 
+    // ========== PUBLIC ENDPOINTS ==========
+
     @GetMapping
     public ResponseEntity<ApiResponse<List<Note>>> getPublishedNotes() {
-        List<Note> notes = noteService.getPublishedNotes();
+        UUID userId = getCurrentUserId();
+        List<Note> notes = noteService.getPublishedNotes(userId);
         return ResponseEntity.ok(ApiResponse.success("Notes retrieved", notes));
-    }
-
-    @GetMapping("/all")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('INSTRUCTOR')")
-    public ResponseEntity<ApiResponse<List<Note>>> getAllNotes() {
-        List<Note> notes = noteService.getAllNotes();
-        return ResponseEntity.ok(ApiResponse.success("All notes retrieved", notes));
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<Note>> getNoteById(@PathVariable UUID id) {
-        Note note = noteService.getNoteById(id);
+        UUID userId = getCurrentUserId();
+        Note note = noteService.getNoteById(id, userId);
         return ResponseEntity.ok(ApiResponse.success("Note retrieved", note));
     }
 
     @GetMapping("/subject/{subjectId}")
     public ResponseEntity<ApiResponse<List<Note>>> getNotesBySubject(@PathVariable UUID subjectId) {
-        List<Note> notes = noteService.getNotesBySubject(subjectId);
+        UUID userId = getCurrentUserId();
+        List<Note> notes = noteService.getNotesBySubject(subjectId, userId);
         return ResponseEntity.ok(ApiResponse.success("Notes retrieved", notes));
     }
 
     @GetMapping("/topic/{topicId}")
     public ResponseEntity<ApiResponse<List<Note>>> getNotesByTopic(@PathVariable UUID topicId) {
-        List<Note> notes = noteService.getNotesByTopic(topicId);
+        UUID userId = getCurrentUserId();
+        List<Note> notes = noteService.getNotesByTopic(topicId, userId);
         return ResponseEntity.ok(ApiResponse.success("Notes retrieved", notes));
     }
 
+    // ========== ADMIN-ONLY ==========
+
+    @GetMapping("/all")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<List<Note>>> getAllNotes() {
+        List<Note> notes = noteService.getAllNotes();
+        return ResponseEntity.ok(ApiResponse.success("All notes retrieved", notes));
+    }
+
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN') or hasRole('INSTRUCTOR')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Note>> createNote(
             @RequestBody Note note,
             @RequestParam(required = false) UUID subjectId,
@@ -63,7 +74,7 @@ public class NoteController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('INSTRUCTOR')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Note>> updateNote(
             @PathVariable UUID id,
             @RequestBody Note note) {
@@ -77,5 +88,22 @@ public class NoteController {
     public ResponseEntity<ApiResponse<Void>> deleteNote(@PathVariable UUID id) {
         noteService.deleteNote(id);
         return ResponseEntity.ok(ApiResponse.success("Note deleted", null));
+    }
+
+    private UUID getCurrentUserId() {
+        try {
+            Object principal = SecurityContextHolder.getContext()
+                    .getAuthentication().getPrincipal();
+            
+            if (principal instanceof UserPrincipal) {
+                return ((UserPrincipal) principal).getId();
+            }
+            if (principal instanceof User) {
+                return ((User) principal).getId();
+            }
+        } catch (Exception e) {
+            // Not authenticated
+        }
+        return null;
     }
 }

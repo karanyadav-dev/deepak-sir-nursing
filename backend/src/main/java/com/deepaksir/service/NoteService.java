@@ -28,10 +28,6 @@ public class NoteService {
     private final TopicRepository topicRepository;
     private final EnrollmentRepository enrollmentRepository;
 
-    /**
-     * Get all published notes for students.
-     * Premium notes are returned with masked content.
-     */
     @Transactional(readOnly = true)
     public List<Note> getPublishedNotes(UUID userId) {
         List<Note> notes = noteRepository.findByPublishedTrueAndActiveTrueOrderByCreatedAtDesc();
@@ -40,17 +36,11 @@ public class NoteService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Get all notes (admin view) - no masking.
-     */
     @Transactional(readOnly = true)
     public List<Note> getAllNotes() {
         return noteRepository.findByActiveTrueOrderByCreatedAtDesc();
     }
 
-    /**
-     * Get note by ID with premium check.
-     */
     @Transactional(readOnly = true)
     public Note getNoteById(UUID id, UUID userId) {
         Note note = noteRepository.findById(id)
@@ -58,9 +48,6 @@ public class NoteService {
         return applyPremiumLock(note, userId);
     }
 
-    /**
-     * Get notes by subject with premium check.
-     */
     @Transactional(readOnly = true)
     public List<Note> getNotesBySubject(UUID subjectId, UUID userId) {
         List<Note> notes = noteRepository.findBySubjectIdAndPublishedTrueAndActiveTrue(subjectId);
@@ -69,9 +56,6 @@ public class NoteService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Get notes by topic with premium check.
-     */
     @Transactional(readOnly = true)
     public List<Note> getNotesByTopic(UUID topicId, UUID userId) {
         List<Note> notes = noteRepository.findByTopicIdAndPublishedTrueAndActiveTrue(topicId);
@@ -80,9 +64,6 @@ public class NoteService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Create new note (admin only).
-     */
     @Transactional
     public Note createNote(Note note, UUID subjectId, UUID topicId) {
         if (subjectId != null) {
@@ -98,9 +79,6 @@ public class NoteService {
         return noteRepository.save(note);
     }
 
-    /**
-     * Update note (admin only).
-     */
     @Transactional
     public Note updateNote(UUID id, Note updated) {
         Note note = noteRepository.findById(id)
@@ -119,9 +97,6 @@ public class NoteService {
         return noteRepository.save(note);
     }
 
-    /**
-     * Soft delete note (admin only).
-     */
     @Transactional
     public void deleteNote(UUID id) {
         Note note = noteRepository.findById(id)
@@ -131,35 +106,25 @@ public class NoteService {
     }
 
     /**
-     * Apply premium lock logic.
-     * - If note is free → return as-is
-     * - If note is premium and user has access → return full content
-     * - If note is premium and user has no access → mask content with preview
+     * Premium lock:
+     * - Free note → full content
+     * - Premium + enrolled user → full content
+     * - Premium + not enrolled → masked preview
      */
     private Note applyPremiumLock(Note note, UUID userId) {
         if (!note.isPremium()) {
-            // Free note - return as-is
             return note;
         }
 
-        // Check if user has access (enrolled in the course OR is admin)
+        // Simple access check: user must be enrolled in ANY course
         boolean hasAccess = false;
         
         if (userId != null) {
-            // Check enrollment in any course linked to this subject
-            if (note.getSubject() != null) {
-                List<Enrollment> enrollments = enrollmentRepository.findByUserIdOrderByEnrolledAtDesc(userId);
-                hasAccess = enrollments.stream()
-                        .anyMatch(e -> e.getCourse() != null 
-                                && e.getCourse().getChapters() != null
-                                && e.getCourse().getChapters().stream()
-                                        .anyMatch(ch -> ch.getSubjects() != null 
-                                                && ch.getSubjects().contains(note.getSubject())));
-            }
+            List<Enrollment> enrollments = enrollmentRepository.findByUserIdOrderByEnrolledAtDesc(userId);
+            hasAccess = !enrollments.isEmpty();
         }
 
         if (!hasAccess) {
-            // Mask premium content
             Note previewNote = new Note();
             previewNote.setId(note.getId());
             previewNote.setTitle(note.getTitle());
@@ -170,16 +135,15 @@ public class NoteService {
             previewNote.setTopic(note.getTopic());
             previewNote.setPublished(note.isPublished());
             previewNote.setActive(note.isActive());
-            previewNote.setPdfUrl(null); // Hide PDF
-            previewNote.setImageUrl(null); // Hide image
-            previewNote.setContent("🔒 PREMIUM CONTENT\n\nThis is a premium note. Please purchase to view full content.\n\nPreview: " 
-                    + (note.getPreviewContent() != null ? note.getPreviewContent() : "Purchase to view"));
+            previewNote.setPdfUrl(null);
+            previewNote.setImageUrl(null);
+            previewNote.setContent("🔒 PREMIUM CONTENT\n\nYe premium note hai. Full content ke liye purchase karein.\n\n" +
+                    "Preview: " + (note.getPreviewContent() != null ? note.getPreviewContent() : "Purchase to view"));
             previewNote.setCreatedAt(note.getCreatedAt());
             previewNote.setUpdatedAt(note.getUpdatedAt());
             return previewNote;
         }
 
-        // User has access - return full note
         return note;
     }
 }
