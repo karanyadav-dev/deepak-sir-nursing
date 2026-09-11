@@ -45,17 +45,25 @@ spring:
             enable: true
 
 jwt:
-  secret: ${JWT_SECRET:your-256-bit-secret-key-here-change-in-production-make-64-chars}
+  secret: ${JWT_SECRET:your-256-bit-secret-key-here-change-in-production-make-64-chars-please-update}
   expiration: 86400000
   refresh-expiration: 604800000
 
 ai:
-  provider: ${AI_PROVIDER:openai}
-  api-key: ${AI_API_KEY:sk-dummy}
-  model: ${AI_MODEL:gpt-4-vision-preview}
-  text-model: ${AI_TEXT_MODEL:gpt-4}
-  vision-model: ${AI_VISION_MODEL:gpt-4-vision-preview}
-  max-tokens: ${AI_MAX_TOKENS:2000}
+  provider: ${AI_PROVIDER:groq}
+  
+  groq:
+    api-key: ${GROQ_API_KEY:}
+    model: ${GROQ_MODEL:llama-3.3-70b-versatile}
+    vision-model: ${GROQ_VISION_MODEL:llama-3.2-90b-vision-preview}
+    base-url: ${GROQ_BASE_URL:https://api.groq.com/openai/v1}
+  
+  openai:
+    api-key: ${OPENAI_API_KEY:}
+    model: ${OPENAI_MODEL:gpt-4-vision-preview}
+    base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
+  
+  max-tokens: ${AI_MAX_TOKENS:2048}
   temperature: ${AI_TEMPERATURE:0.7}
   timeout: ${AI_TIMEOUT:60000}
   max-image-size: ${AI_MAX_IMAGE_SIZE:5242880}
@@ -63,14 +71,27 @@ ai:
   max-requests-per-minute: ${AI_RATE_LIMIT_MINUTE:10}
   max-requests-per-hour: ${AI_RATE_LIMIT_HOUR:100}
   max-chats-per-user: ${AI_MAX_CHATS:50}
+  
   system-prompt: |
-    You are a knowledgeable Nursing Education Assistant for Deepak Sir Nursing platform.
-    Provide educational info about nursing, medical topics, anatomy, physiology, pharmacology.
-    NEVER provide medical diagnoses or prescriptions. Be supportive and exam-focused.
+    You are a knowledgeable Nursing Education Assistant for the "Deepak Sir" 
+    nursing exam preparation platform. Help nursing students learn and prepare 
+    for competitive exams like NORCET, AIIMS Nursing, etc.
+    
+    Guidelines:
+    1. Provide educational information about nursing and medical topics.
+    2. Use simple language with Hindi/Hinglish terms where helpful.
+    3. Structure responses with clear headings, bullet points, and markers.
+    4. Include nursing considerations and exam-relevant points.
+    5. NEVER provide definitive medical diagnoses or prescriptions.
+    6. For emergencies, advise immediate professional medical help.
+    7. Be supportive, encouraging, and exam-focused.
+  
   safety-prompt: |
     IMPORTANT SAFETY GUIDELINES:
     - Do not claim to diagnose any medical condition.
     - Do not prescribe medications or change dosages.
+    - Do not advise stopping prescribed treatments.
+    - If symptoms suggest emergency, advise immediate medical attention.
     - Focus on nursing education, not medical practice.
 
 storage:

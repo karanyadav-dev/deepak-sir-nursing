@@ -17,9 +17,9 @@ import java.util.*;
 
 @Slf4j
 @Service
-@ConditionalOnProperty(name = "ai.provider", havingValue = "openai")
 @RequiredArgsConstructor
-public class OpenAIProviderService implements AIProviderService {
+@ConditionalOnProperty(name = "ai.provider", havingValue = "groq", matchIfMissing = true)
+public class GroqProviderService implements AIProviderService {
 
     private final AIConfig aiConfig;
     private final RestTemplate restTemplate;
@@ -31,7 +31,7 @@ public class OpenAIProviderService implements AIProviderService {
                                        String language) {
         try {
             Map<String, Object> requestBody = new HashMap<>();
-            requestBody.put("model", aiConfig.getOpenai().getModel());
+            requestBody.put("model", aiConfig.getGroq().getModel());
             requestBody.put("max_tokens", aiConfig.getMaxTokens());
             requestBody.put("temperature", aiConfig.getTemperature());
 
@@ -54,51 +54,20 @@ public class OpenAIProviderService implements AIProviderService {
             messages.add(Map.of("role", "user", "content", prompt));
             requestBody.put("messages", messages);
 
-            return callOpenAI(requestBody);
+            return callGroq(requestBody);
         } catch (Exception e) {
-            log.error("OpenAI text API error", e);
-            throw new AIServiceException("Failed to generate AI response: " + e.getMessage(), e);
+            log.error("Groq API error: {}", e.getMessage(), e);
+            throw new AIServiceException("Groq API error: " + e.getMessage(), e);
         }
     }
 
     @Override
     public String generateVisionResponse(String prompt, MultipartFile image,
                                          String systemPrompt, String language) {
-        try {
-            String base64Image = Base64.getEncoder().encodeToString(image.getBytes());
-            String imageType = getImageMimeType(image.getContentType());
-
-            Map<String, Object> requestBody = new HashMap<>();
-            requestBody.put("model", aiConfig.getOpenai().getModel());
-            requestBody.put("max_tokens", aiConfig.getMaxTokens());
-            requestBody.put("temperature", aiConfig.getTemperature());
-
-            List<Map<String, Object>> messages = new ArrayList<>();
-            messages.add(Map.of(
-                    "role", "system",
-                    "content", systemPrompt + "\n\nYou are analyzing an educational medical image. " +
-                            "Provide educational explanation. Do not give medical diagnosis."
-            ));
-
-            Map<String, Object> userMessage = new HashMap<>();
-            userMessage.put("role", "user");
-
-            List<Map<String, Object>> content = new ArrayList<>();
-            content.add(Map.of("type", "text", "text", prompt));
-            content.add(Map.of(
-                    "type", "image_url",
-                    "image_url", Map.of("url", "data:" + imageType + ";base64," + base64Image)
-            ));
-
-            userMessage.put("content", content);
-            messages.add(userMessage);
-
-            requestBody.put("messages", messages);
-            return callOpenAI(requestBody);
-        } catch (Exception e) {
-            log.error("OpenAI vision API error", e);
-            throw new AIServiceException("Failed to analyze image: " + e.getMessage(), e);
-        }
+        // Groq vision preview - fallback to text
+        return generateTextResponse(
+                prompt + "\n\n[Note: Image analysis requires the image description. Please describe your image in detail for best results.]",
+                systemPrompt, Collections.emptyList(), language);
     }
 
     @Override
@@ -108,7 +77,8 @@ public class OpenAIProviderService implements AIProviderService {
                 "Format each MCQ with:\nQuestion\nA. Option\nB. Option\nC. Option\nD. Option\n\n" +
                 "Correct Answer: [A/B/C/D]\nExplanation: [brief explanation]\nDifficulty: %s",
                 count, difficulty, topic, difficulty);
-        return generateTextResponse(prompt, aiConfig.getSystemPrompt(),
+        return generateTextResponse(prompt,
+                "You are a nursing education expert creating exam MCQs. Structure every question clearly.",
                 Collections.emptyList(), language);
     }
 
@@ -119,7 +89,8 @@ public class OpenAIProviderService implements AIProviderService {
                 "Include: Assessment, Nursing Diagnosis (NANDA format), Goals, " +
                 "Nursing Interventions with rationales, Monitoring, Patient Education, Evaluation.",
                 condition);
-        return generateTextResponse(prompt, aiConfig.getSystemPrompt(),
+        return generateTextResponse(prompt,
+                "You are an expert nursing educator creating educational care plans.",
                 Collections.emptyList(), language);
     }
 
@@ -128,27 +99,27 @@ public class OpenAIProviderService implements AIProviderService {
         String prompt = String.format(
                 "Create comprehensive short notes for nursing students on: %s\n\n" +
                 "Include: Definition, Key Points, Classification, Clinical Features, " +
-                "Nursing Management, Important Exam Points.",
+                "Nursing Management, Important Exam Points, Quick Revision.",
                 topic);
-        return generateTextResponse(prompt, aiConfig.getSystemPrompt(),
+        return generateTextResponse(prompt,
+                "You are an expert nursing educator creating exam-oriented notes.",
                 Collections.emptyList(), language);
     }
 
     @Override
     public boolean supportsVision() {
-        return aiConfig.getOpenai().getModel() != null
-                && aiConfig.getOpenai().getModel().contains("vision");
+        return false;
     }
 
     @Override
     public String getProviderName() {
-        return "OpenAI";
+        return "Groq";
     }
 
-    private String callOpenAI(Map<String, Object> requestBody) {
-        String apiKey = aiConfig.getOpenai().getApiKey();
+    private String callGroq(Map<String, Object> requestBody) {
+        String apiKey = aiConfig.getGroq().getApiKey();
         if (apiKey == null || apiKey.isEmpty()) {
-            throw new AIServiceException("OpenAI API key not configured");
+            throw new AIServiceException("Groq API key not configured");
         }
 
         HttpHeaders headers = new HttpHeaders();
@@ -159,7 +130,7 @@ public class OpenAIProviderService implements AIProviderService {
 
         try {
             ResponseEntity<String> response = restTemplate.exchange(
-                    aiConfig.getOpenai().getBaseUrl() + "/chat/completions",
+                    aiConfig.getGroq().getBaseUrl() + "/chat/completions",
                     HttpMethod.POST,
                     request,
                     String.class
@@ -172,12 +143,12 @@ public class OpenAIProviderService implements AIProviderService {
                     return choices.get(0).path("message").path("content").asText();
                 }
             }
-            throw new AIServiceException("Empty response from OpenAI");
+            throw new AIServiceException("Empty response from Groq");
         } catch (AIServiceException e) {
             throw e;
         } catch (Exception e) {
-            log.error("OpenAI call failed", e);
-            throw new AIServiceException("OpenAI API call failed: " + e.getMessage(), e);
+            log.error("Groq call failed", e);
+            throw new AIServiceException("Groq API call failed: " + e.getMessage(), e);
         }
     }
 
@@ -187,15 +158,6 @@ public class OpenAIProviderService implements AIProviderService {
             case "hi" -> "Respond in Hindi language using Devanagari script.";
             case "hinglish" -> "Respond in Hinglish mixing Hindi and English.";
             default -> "Respond in English. Include Hindi medical terms where helpful.";
-        };
-    }
-
-    private String getImageMimeType(String contentType) {
-        if (contentType == null) return "image/jpeg";
-        return switch (contentType.toLowerCase()) {
-            case "image/png" -> "image/png";
-            case "image/webp" -> "image/webp";
-            default -> "image/jpeg";
         };
     }
 }
