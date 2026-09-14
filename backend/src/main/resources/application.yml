@@ -54,8 +54,8 @@ ai:
   
   groq:
     api-key: ${GROQ_API_KEY:}
-    model: ${GROQ_MODEL:llama-3.3-70b-versatile}
-    vision-model: ${GROQ_VISION_MODEL:llama-3.2-90b-vision-preview}
+    model: ${GROQ_MODEL:openai/gpt-oss-120b}
+    vision-model: ${GROQ_VISION_MODEL:openai/gpt-oss-120b}
     base-url: ${GROQ_BASE_URL:https://api.groq.com/openai/v1}
   
   openai:
@@ -101,11 +101,11 @@ storage:
 
 payment:
   razorpay:
-    key-id: ${RAZORPAY_KEY_ID:your-key-id}
-    key-secret: ${RAZORPAY_KEY_SECRET:your-key-secret}
+    key-id: ${RAZORPAY_KEY_ID:}
+    key-secret: ${RAZORPAY_KEY_SECRET:}
 
 google:
-  client-id: ${GOOGLE_CLIENT_ID:your-google-client-id}
+  client-id: ${GOOGLE_CLIENT_ID:}
 
 app:
-  base-url: ${APP_BASE_URL:http://localhost:8080}
+  base-url: ${APP_BASE_URL:https://deepak-sir-nursing-production.up.railway.app}
