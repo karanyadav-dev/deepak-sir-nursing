@@ -14,7 +14,7 @@ import java.util.UUID;
 @Table(name = "notifications", indexes = {
     @Index(name = "idx_notifications_user", columnList = "user_id"),
     @Index(name = "idx_notifications_created", columnList = "created_at"),
-    @Index(name = "idx_notifications_read", columnList = "read")
+    @Index(name = "idx_notifications_is_read", columnList = "is_read")
 })
 public class Notification {
 
