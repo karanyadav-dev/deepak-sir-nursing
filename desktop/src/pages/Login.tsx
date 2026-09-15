@@ -7,15 +7,20 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { setUser } = useUserStore();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
+
     try {
-      const response = await api.post('/auth/login', { email, password });
+      // ✅ FIXED: /admin/auth/login endpoint use karo
+      const response = await api.post('/admin/auth/login', { email, password });
       const data = response.data;
+
       if (data.success) {
         localStorage.setItem('token', data.data.accessToken);
         setUser(data.data);
@@ -24,7 +29,9 @@ export default function Login() {
         setError(data.message || 'Login failed');
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Network error');
+      setError(err.response?.data?.message || 'Invalid credentials');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -44,7 +51,7 @@ export default function Login() {
           <p className="text-gray-500 text-xs mt-1">Your Success, Our Mission</p>
         </div>
 
-        {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-4">{error}</div>}
+        {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-4 text-sm">{error}</div>}
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
@@ -71,9 +78,10 @@ export default function Login() {
           </div>
           <button
             type="submit"
-            className="w-full bg-blue-600 text-white py-3 rounded-md hover:bg-blue-700 font-semibold"
+            disabled={loading}
+            className="w-full bg-blue-600 text-white py-3 rounded-md hover:bg-blue-700 font-semibold disabled:opacity-50"
           >
-            LOGIN
+            {loading ? 'LOGGING IN...' : 'LOGIN'}
           </button>
         </form>
       </div>

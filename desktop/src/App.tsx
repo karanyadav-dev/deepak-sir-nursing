@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard';
 import Classroom from './pages/Classroom';
 import Library from './pages/Library';
 import Settings from './pages/Settings';
+import Courses from './pages/Courses';
 import { useUserStore } from './store/userStore';
 
 function App() {
@@ -13,10 +14,11 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route path="/" element={user ? <Dashboard /> : <Navigate to="/login" />} />
+        <Route path="/" element={user ? <Navigate to="/dashboard" /> : <Navigate to="/login" />} />
         <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/login" />} />
         <Route path="/classroom" element={user ? <Classroom /> : <Navigate to="/login" />} />
         <Route path="/library" element={user ? <Library /> : <Navigate to="/login" />} />
+        <Route path="/courses" element={user ? <Courses /> : <Navigate to="/login" />} />
         <Route path="/settings" element={user ? <Settings /> : <Navigate to="/login" />} />
       </Routes>
     </BrowserRouter>
