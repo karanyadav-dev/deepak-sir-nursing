@@ -1,84 +1,131 @@
-﻿import { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+﻿import { useState, useRef, useEffect } from 'react';
 import Layout from '../components/Layout';
+import ThreeDViewer from '../components/ThreeDViewer';
 import {
   Presentation, FileText, Box, Video, PenTool,
-  Save, Undo, Redo, Trash2, Download, Maximize,
-  Type, Highlighter, Eraser, MousePointer2, Circle, Square,
-  Minus, ArrowRight, ZoomIn, ZoomOut, RotateCw, Play, Pause, Volume2
+  Save, Undo, Redo, Trash2, Download, Upload,
+  Highlighter, Eraser, X, StickyNote, Eye, EyeOff,
+  Move, RotateCw
 } from 'lucide-react';
 
-type ContentType = 'ppt' | 'pdf' | '3d' | 'video' | 'whiteboard';
+type BackgroundType = 'none' | 'ppt' | 'pdf' | 'video' | '3d';
+
+interface UploadedFile {
+  id: string;
+  name: string;
+  type: BackgroundType;
+  url: string;
+}
 
 export default function Classroom() {
-  const navigate = useNavigate();
-  const [contentType, setContentType] = useState<ContentType>('whiteboard');
-  const [currentSlide, setCurrentSlide] = useState(1);
-  const [totalSlides] = useState(20);
-  const [zoom, setZoom] = useState(100);
-  const [fullscreen, setFullscreen] = useState(false);
-  const [notes, setNotes] = useState('');
-  const [showNotes, setShowNotes] = useState(false);
+  const [backgroundType, setBackgroundType] = useState<BackgroundType>('none');
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [activeFile, setActiveFile] = useState<UploadedFile | null>(null);
 
-  // Whiteboard state
-  const [penColor, setPenColor] = useState('#000000');
-  const [penSize, setPenSize] = useState(3);
-  const [tool, setTool] = useState<'pen' | 'eraser' | 'highlighter'>('pen');
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
+  const [tool, setTool] = useState<'pen' | 'highlighter' | 'eraser' | 'none'>('pen');
+  const [penColor, setPenColor] = useState('#ff0000');
+  const [penSize, setPenSize] = useState(3);
   const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
 
-  // Video state
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [is3DMode, setIs3DMode] = useState(false);
+  const [enable3DRotation, setEnable3DRotation] = useState(true);
+  const [annotationsVisible, setAnnotationsVisible] = useState(true);
+  const [backgroundVisible, setBackgroundVisible] = useState(true);
 
-  // 3D state
-  const [rotation, setRotation] = useState(0);
+  const [notes, setNotes] = useState('');
+  const [showNotes, setShowNotes] = useState(false);
+  const [timerSeconds, setTimerSeconds] = useState(0);
+  const [timerRunning, setTimerRunning] = useState(false);
+  const [zoom] = useState(100);
 
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleBack = () => {
-    if (window.confirm('Exit classroom?')) {
-      navigate('/dashboard');
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (timerRunning) {
+      interval = setInterval(() => setTimerSeconds(s => s + 1), 1000);
     }
-  };
+    return () => clearInterval(interval);
+  }, [timerRunning]);
 
-  const handleNext = () => {
-    if (currentSlide < totalSlides) setCurrentSlide(currentSlide + 1);
-  };
-
-  const handlePrev = () => {
-    if (currentSlide > 1) setCurrentSlide(currentSlide - 1);
-  };
-
-  const handleZoomIn = () => setZoom(Math.min(200, zoom + 10));
-  const handleZoomOut = () => setZoom(Math.max(50, zoom - 10));
-
-  const clearCanvas = () => {
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    ctx?.clearRect(0, 0, canvas.width, canvas.height);
-    setHistory([]);
-    setHistoryIndex(-1);
+    if (!ctx) return;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }, []);
+
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   };
 
-  const handleSaveBoard = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const url = canvas.toDataURL('image/png');
-    const link = document.createElement('a');
-    link.download = `whiteboard-${Date.now()}.png`;
-    link.href = url;
-    link.click();
+  const getFileCategory = (filename: string): BackgroundType => {
+    const ext = filename.split('.').pop()?.toLowerCase();
+    if (['ppt', 'pptx'].includes(ext || '')) return 'ppt';
+    if (ext === 'pdf') return 'pdf';
+    if (['glb', 'gltf', 'obj', 'fbx'].includes(ext || '')) return '3d';
+    if (['mp4', 'webm', 'mkv'].includes(ext || '')) return 'video';
+    return 'none';
+  };
+
+  const handleUploadClick = () => fileInputRef.current?.click();
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const newFiles: UploadedFile[] = [];
+    Array.from(files).forEach((file) => {
+      const type = getFileCategory(file.name);
+      newFiles.push({
+        id: Date.now().toString() + Math.random(),
+        name: file.name,
+        type,
+        url: URL.createObjectURL(file),
+      });
+    });
+
+    setUploadedFiles([...newFiles, ...uploadedFiles]);
+    if (newFiles.length > 0) {
+      setActiveFile(newFiles[0]);
+      setBackgroundType(newFiles[0].type);
+      setIs3DMode(newFiles[0].type === '3d');
+    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const openFile = (file: UploadedFile) => {
+    setActiveFile(file);
+    setBackgroundType(file.type);
+    setIs3DMode(file.type === '3d');
+  };
+
+  const closeBackground = () => {
+    setActiveFile(null);
+    setBackgroundType('none');
+    setIs3DMode(false);
   };
 
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (tool !== 'pen' && tool !== 'eraser' && tool !== 'highlighter') return;
+    if (tool === 'none') return;
+    if (is3DMode) setEnable3DRotation(false);
+
     const canvas = canvasRef.current;
     if (!canvas) return;
+
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -89,44 +136,62 @@ export default function Classroom() {
   };
 
   const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDrawing) return;
+    if (!isDrawing || tool === 'none') return;
     const canvas = canvasRef.current;
     if (!canvas) return;
+
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     ctx.lineTo(x, y);
+
     if (tool === 'eraser') {
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 20;
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.lineWidth = penSize * 5;
     } else if (tool === 'highlighter') {
-      ctx.strokeStyle = '#ffff00';
-      ctx.lineWidth = 20;
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.strokeStyle = penColor;
+      ctx.lineWidth = penSize * 5;
       ctx.globalAlpha = 0.3;
     } else {
+      ctx.globalCompositeOperation = 'source-over';
       ctx.strokeStyle = penColor;
       ctx.lineWidth = penSize;
       ctx.globalAlpha = 1;
     }
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
+
     ctx.stroke();
   };
 
   const stopDrawing = () => {
     if (!isDrawing) return;
     setIsDrawing(false);
+    if (is3DMode) setEnable3DRotation(true);
+
     const canvas = canvasRef.current;
     if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (ctx) ctx.globalAlpha = 1;
     setHistory([...history, canvas.toDataURL()]);
     setHistoryIndex(history.length);
   };
 
-  const handleUndo = () => {
+  const clearCanvas = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx?.clearRect(0, 0, canvas.width, canvas.height);
+    setHistory([]);
+    setHistoryIndex(-1);
+  };
+
+  const undo = () => {
     if (historyIndex <= 0) return;
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
@@ -140,7 +205,7 @@ export default function Classroom() {
     setHistoryIndex(historyIndex - 1);
   };
 
-  const handleRedo = () => {
+  const redo = () => {
     if (historyIndex >= history.length - 1) return;
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
@@ -154,103 +219,266 @@ export default function Classroom() {
     setHistoryIndex(historyIndex + 1);
   };
 
+  const saveBoard = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const link = document.createElement('a');
+    link.download = `classroom-${Date.now()}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  };
+
   return (
     <Layout title="Classroom" showBack>
       <div className="h-full flex flex-col bg-gray-900 text-white">
-        {/* TOP TOOLBAR */}
-        <div className="flex items-center justify-between px-4 py-2 bg-gray-800 border-b border-gray-700">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setContentType('ppt')}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-sm ${
-                contentType === 'ppt' ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'
-              }`}
-            >
-              <Presentation size={16} /> PPT
-            </button>
-            <button
-              onClick={() => setContentType('pdf')}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-sm ${
-                contentType === 'pdf' ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'
-              }`}
-            >
-              <FileText size={16} /> PDF
-            </button>
-            <button
-              onClick={() => setContentType('3d')}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-sm ${
-                contentType === '3d' ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'
-              }`}
-            >
-              <Box size={16} /> 3D
-            </button>
-            <button
-              onClick={() => setContentType('video')}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-sm ${
-                contentType === 'video' ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'
-              }`}
-            >
-              <Video size={16} /> Video
-            </button>
-            <button
-              onClick={() => setContentType('whiteboard')}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-sm ${
-                contentType === 'whiteboard' ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'
-              }`}
-            >
-              <PenTool size={16} /> Whiteboard
-            </button>
-          </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept=".ppt,.pptx,.pdf,.glb,.gltf,.obj,.fbx,.mp4,.webm,.mkv"
+          onChange={handleFileChange}
+          className="hidden"
+        />
 
-          <div className="flex items-center gap-2">
-            {contentType !== 'whiteboard' && (
-              <span className="text-sm text-gray-400">
-                {currentSlide} / {totalSlides}
+        <div className="flex items-center justify-between px-4 py-2 bg-gray-800 border-b border-gray-700">
+          <div className="flex items-center gap-3">
+            <span className="font-bold text-blue-400">🎓 Digital Classroom</span>
+            {activeFile && (
+              <span className="text-xs text-gray-400 px-2 py-1 bg-gray-700 rounded">
+                {activeFile.name}
               </span>
             )}
+            {is3DMode && (
+              <span className="text-xs text-purple-400 px-2 py-1 bg-purple-900 rounded">
+                🧊 3D Mode
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-700 rounded-md">
+              <span className="font-mono text-sm">{formatTime(timerSeconds)}</span>
+              <button onClick={() => setTimerRunning(!timerRunning)} className="text-xs hover:text-blue-400">
+                {timerRunning ? 'Pause' : 'Start'}
+              </button>
+              <button onClick={() => { setTimerSeconds(0); setTimerRunning(false); }} className="text-xs hover:text-red-400">
+                Reset
+              </button>
+            </div>
+
+            {is3DMode && (
+              <button
+                onClick={() => setEnable3DRotation(!enable3DRotation)}
+                className={`px-3 py-1.5 rounded-md text-xs flex items-center gap-1 ${
+                  enable3DRotation ? 'bg-purple-600' : 'bg-gray-700'
+                }`}
+              >
+                <RotateCw size={14} />
+                {enable3DRotation ? 'Rotate ON' : 'Rotate OFF'}
+              </button>
+            )}
+
+            <button
+              onClick={() => setAnnotationsVisible(!annotationsVisible)}
+              className={`p-2 rounded ${annotationsVisible ? 'bg-blue-600' : 'bg-gray-700'}`}
+            >
+              {annotationsVisible ? <Eye size={16} /> : <EyeOff size={16} />}
+            </button>
+
             <button
               onClick={() => setShowNotes(!showNotes)}
-              className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-md text-sm"
+              className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-md text-sm flex items-center gap-1"
             >
-              📝 Notes
+              <StickyNote size={14} /> Notes
             </button>
           </div>
         </div>
 
-        {/* WHITEBOARD SUB-TOOLBAR */}
-        {contentType === 'whiteboard' && (
-          <div className="flex items-center gap-2 px-4 py-2 bg-gray-800 border-b border-gray-700 overflow-x-auto">
+        <div className="flex-1 flex overflow-hidden">
+          <div style={{ position: 'relative', flex: 1, overflow: 'hidden', backgroundColor: '#1a1a1a' }}>
+            {backgroundVisible && is3DMode && activeFile && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  zIndex: 1,
+                  pointerEvents: enable3DRotation ? 'auto' : 'none',
+                }}
+              >
+                <ThreeDViewer modelUrl={activeFile.url} />
+              </div>
+            )}
+
+            {backgroundVisible && !is3DMode && activeFile && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  pointerEvents: 'none',
+                  zIndex: 1,
+                }}
+              >
+                {backgroundType === 'ppt' && (
+                  <div
+                    style={{
+                      width: '95%',
+                      height: '95%',
+                      backgroundColor: 'white',
+                      borderRadius: 8,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#333',
+                      transform: `scale(${zoom / 100})`,
+                    }}
+                  >
+                    <div style={{ textAlign: 'center', padding: 40 }}>
+                      <Presentation size={80} style={{ margin: '0 auto 16px', color: '#f97316' }} />
+                      <p style={{ fontSize: 24, fontWeight: 'bold', color: '#1f2937' }}>
+                        {activeFile.name}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {backgroundType === 'pdf' && (
+                  <iframe
+                    src={activeFile.url}
+                    style={{
+                      width: '95%',
+                      height: '95%',
+                      border: 'none',
+                      borderRadius: 8,
+                    }}
+                    title="PDF"
+                  />
+                )}
+
+                {backgroundType === 'video' && (
+                  <video
+                    src={activeFile.url}
+                    style={{ maxWidth: '95%', maxHeight: '95%', borderRadius: 8 }}
+                    autoPlay
+                    loop
+                    muted
+                  />
+                )}
+              </div>
+            )}
+
+            {annotationsVisible && (
+              <canvas
+                ref={canvasRef}
+                width={1920}
+                height={1080}
+                onMouseDown={startDrawing}
+                onMouseMove={draw}
+                onMouseUp={stopDrawing}
+                onMouseLeave={stopDrawing}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  cursor: tool === 'eraser' ? 'cell' : tool === 'none' ? 'default' : 'crosshair',
+                  pointerEvents: tool === 'none' ? 'none' : 'auto',
+                  zIndex: 10,
+                  backgroundColor: 'transparent',
+                }}
+              />
+            )}
+
+            {is3DMode && enable3DRotation && (
+              <div
+                style={{
+                  position: 'absolute',
+                  bottom: 16,
+                  left: 16,
+                  backgroundColor: 'rgba(147, 51, 234, 0.9)',
+                  color: 'white',
+                  padding: '8px 16px',
+                  borderRadius: 8,
+                  fontSize: 12,
+                  zIndex: 20,
+                }}
+              >
+                🖱️ Drag to rotate 3D • Scroll to zoom
+              </div>
+            )}
+          </div>
+
+          {showNotes && (
+            <div className="w-80 bg-gray-800 border-l border-gray-700 flex flex-col">
+              <div className="flex items-center justify-between p-3 border-b border-gray-700">
+                <span className="font-semibold">📝 Class Notes</span>
+                <button onClick={() => setShowNotes(false)} className="text-gray-400 hover:text-white">
+                  <X size={16} />
+                </button>
+              </div>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Type class notes..."
+                className="flex-1 p-3 bg-gray-900 text-white resize-none focus:outline-none"
+              />
+            </div>
+          )}
+        </div>
+
+        <div className="bg-gray-800 border-t border-gray-700">
+          <div className="flex items-center gap-2 px-4 py-2 overflow-x-auto border-b border-gray-700">
+            <button
+              onClick={() => setTool('none')}
+              className={`p-2 rounded ${tool === 'none' ? 'bg-blue-600' : 'bg-gray-700'}`}
+            >
+              <Move size={16} />
+            </button>
             <button
               onClick={() => setTool('pen')}
               className={`p-2 rounded ${tool === 'pen' ? 'bg-blue-600' : 'bg-gray-700'}`}
-              title="Pen"
             >
               <PenTool size={16} />
             </button>
             <button
               onClick={() => setTool('highlighter')}
               className={`p-2 rounded ${tool === 'highlighter' ? 'bg-blue-600' : 'bg-gray-700'}`}
-              title="Highlighter"
             >
               <Highlighter size={16} />
             </button>
             <button
               onClick={() => setTool('eraser')}
               className={`p-2 rounded ${tool === 'eraser' ? 'bg-blue-600' : 'bg-gray-700'}`}
-              title="Eraser"
             >
               <Eraser size={16} />
             </button>
 
             <div className="border-l border-gray-600 h-6 mx-1" />
 
+            {['#000000', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#ffffff'].map((color) => (
+              <button
+                key={color}
+                onClick={() => setPenColor(color)}
+                className={`w-7 h-7 rounded-full border-2 ${penColor === color ? 'border-white' : 'border-gray-600'}`}
+                style={{ backgroundColor: color }}
+              />
+            ))}
             <input
               type="color"
               value={penColor}
               onChange={(e) => setPenColor(e.target.value)}
-              className="w-8 h-8 rounded cursor-pointer"
-              title="Color"
+              className="w-7 h-7 rounded cursor-pointer"
             />
+
+            <div className="border-l border-gray-600 h-6 mx-1" />
 
             <input
               type="range"
@@ -259,148 +487,64 @@ export default function Classroom() {
               value={penSize}
               onChange={(e) => setPenSize(Number(e.target.value))}
               className="w-20"
-              title="Size"
             />
+            <span className="text-xs w-8">{penSize}px</span>
 
             <div className="border-l border-gray-600 h-6 mx-1" />
 
-            <button
-              onClick={handleUndo}
-              className="p-2 rounded bg-gray-700 hover:bg-gray-600"
-              title="Undo"
-            >
+            <button onClick={undo} className="p-2 rounded bg-gray-700 hover:bg-gray-600">
               <Undo size={16} />
             </button>
-            <button
-              onClick={handleRedo}
-              className="p-2 rounded bg-gray-700 hover:bg-gray-600"
-              title="Redo"
-            >
+            <button onClick={redo} className="p-2 rounded bg-gray-700 hover:bg-gray-600">
               <Redo size={16} />
             </button>
-            <button
-              onClick={clearCanvas}
-              className="p-2 rounded bg-gray-700 hover:bg-gray-600"
-              title="Clear"
-            >
+            <button onClick={clearCanvas} className="p-2 rounded bg-red-600 hover:bg-red-700">
               <Trash2 size={16} />
             </button>
-            <button
-              onClick={handleSaveBoard}
-              className="p-2 rounded bg-green-600 hover:bg-green-700"
-              title="Save"
-            >
+            <button onClick={saveBoard} className="p-2 rounded bg-green-600 hover:bg-green-700">
               <Download size={16} />
             </button>
           </div>
-        )}
 
-        {/* MAIN CONTENT */}
-        <div className="flex-1 flex overflow-hidden">
-          <div className="flex-1 flex items-center justify-center overflow-auto p-4">
-            {contentType === 'ppt' && (
-              <div className="flex flex-col items-center gap-4">
-                <div className="w-[800px] h-[450px] bg-white rounded-lg flex items-center justify-center text-gray-800 shadow-2xl">
-                  <div className="text-center">
-                    <Presentation size={64} className="mx-auto mb-4 text-blue-600" />
-                    <p className="text-2xl font-bold">Slide {currentSlide}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <button onClick={handlePrev} disabled={currentSlide === 1} className="px-4 py-2 bg-blue-600 rounded-md disabled:opacity-50">← Prev</button>
-                  <span className="text-sm">Slide {currentSlide} of {totalSlides}</span>
-                  <button onClick={handleNext} disabled={currentSlide === totalSlides} className="px-4 py-2 bg-blue-600 rounded-md disabled:opacity-50">Next →</button>
-                </div>
-              </div>
-            )}
+          <div className="flex items-center gap-2 px-4 py-2">
+            <button
+              onClick={handleUploadClick}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-medium"
+            >
+              <Upload size={16} />
+              Upload File
+            </button>
 
-            {contentType === 'pdf' && (
-              <div className="flex flex-col items-center gap-4">
-                <div className="w-[800px] h-[1000px] bg-white rounded-lg shadow-2xl flex items-center justify-center text-gray-800" style={{ transform: `scale(${zoom / 100})` }}>
-                  <div className="text-center">
-                    <FileText size={64} className="mx-auto mb-4 text-red-500" />
-                    <p className="text-2xl font-bold">Page {currentSlide}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <button onClick={handleZoomOut} className="px-3 py-2 bg-gray-700 rounded-md"><ZoomOut size={16} /></button>
-                  <span className="text-sm">{zoom}%</span>
-                  <button onClick={handleZoomIn} className="px-3 py-2 bg-gray-700 rounded-md"><ZoomIn size={16} /></button>
-                  <button onClick={handlePrev} className="px-4 py-2 bg-blue-600 rounded-md">← Prev</button>
-                  <button onClick={handleNext} className="px-4 py-2 bg-blue-600 rounded-md">Next →</button>
-                </div>
-              </div>
-            )}
-
-            {contentType === '3d' && (
-              <div className="flex flex-col items-center gap-4">
-                <div className="w-[600px] h-[500px] bg-gradient-to-br from-blue-900 to-purple-900 rounded-lg shadow-2xl flex items-center justify-center">
-                  <div className="text-center" style={{ transform: `rotateY(${rotation}deg)` }}>
-                    <Box size={120} className="mx-auto text-purple-400 mb-4" />
-                    <p className="text-xl font-bold">3D Model</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <button onClick={() => setRotation(rotation - 15)} className="px-4 py-2 bg-purple-600 rounded-md"><RotateCw size={16} className="inline mr-1" /> Left</button>
-                  <button onClick={handleZoomOut} className="px-3 py-2 bg-gray-700 rounded-md"><ZoomOut size={16} /></button>
-                  <button onClick={handleZoomIn} className="px-3 py-2 bg-gray-700 rounded-md"><ZoomIn size={16} /></button>
-                  <button onClick={() => setRotation(rotation + 15)} className="px-4 py-2 bg-purple-600 rounded-md">Right <RotateCw size={16} className="inline ml-1" /></button>
-                </div>
-              </div>
-            )}
-
-            {contentType === 'video' && (
-              <div className="flex flex-col items-center gap-4">
-                <div className="w-[800px] h-[450px] bg-black rounded-lg shadow-2xl flex items-center justify-center">
-                  <div className="text-center">
-                    <Video size={64} className="mx-auto mb-4 text-blue-500" />
-                    <p className="text-xl font-bold">Video Player</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <button onClick={() => setIsPlaying(!isPlaying)} className="px-4 py-2 bg-blue-600 rounded-md">
-                    {isPlaying ? <Pause size={16} /> : <Play size={16} />}
+            <div className="flex gap-2 overflow-x-auto flex-1">
+              {uploadedFiles.map((file) => {
+                const Icon = file.type === 'ppt' ? Presentation :
+                             file.type === 'pdf' ? FileText :
+                             file.type === '3d' ? Box :
+                             file.type === 'video' ? Video : FileText;
+                return (
+                  <button
+                    key={file.id}
+                    onClick={() => openFile(file)}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs whitespace-nowrap ${
+                      activeFile?.id === file.id ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'
+                    }`}
+                  >
+                    <Icon size={12} />
+                    {file.name.substring(0, 25)}
                   </button>
-                  <input type="range" className="w-96" min="0" max="100" defaultValue="0" />
-                  <Volume2 size={20} />
-                </div>
-              </div>
-            )}
+                );
+              })}
+            </div>
 
-            {contentType === 'whiteboard' && (
-              <canvas
-                ref={canvasRef}
-                width={1200}
-                height={700}
-                onMouseDown={startDrawing}
-                onMouseMove={draw}
-                onMouseUp={stopDrawing}
-                onMouseLeave={stopDrawing}
-                className="bg-white rounded-lg shadow-2xl"
-                style={{ cursor: tool === 'eraser' ? 'cell' : 'crosshair' }}
-              />
+            {activeFile && (
+              <button
+                onClick={closeBackground}
+                className="px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm"
+              >
+                <X size={14} className="inline" /> Close
+              </button>
             )}
           </div>
-
-          {showNotes && (
-            <div className="w-80 bg-gray-800 border-l border-gray-700 flex flex-col">
-              <div className="flex items-center justify-between p-3 border-b border-gray-700">
-                <span className="font-semibold">📝 Class Notes</span>
-                <button onClick={() => setShowNotes(false)} className="text-gray-400 hover:text-white">✕</button>
-              </div>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Type class notes..."
-                className="flex-1 p-3 bg-gray-900 text-white resize-none focus:outline-none"
-              />
-              <div className="p-3 border-t border-gray-700">
-                <button className="w-full px-4 py-2 bg-green-600 rounded-md hover:bg-green-700 flex items-center justify-center gap-2">
-                  <Save size={16} /> Save Notes
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </Layout>
