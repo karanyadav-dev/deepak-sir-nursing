@@ -30,47 +30,74 @@ jobs:
       - name: Install System Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            build-essential git zip unzip \
-            openjdk-17-jdk autoconf libtool pkg-config \
-            zlib1g-dev libncurses-dev cmake libffi-dev \
-            libssl-dev ccache
+          sudo apt-get install -y build-essential git zip unzip openjdk-17-jdk autoconf libtool pkg-config zlib1g-dev libncurses-dev cmake libffi-dev libssl-dev ccache
       
       - name: Install Python Dependencies
         run: |
           pip install --upgrade pip
           pip install buildozer==1.5.0 cython==0.29.33
       
-      - name: Download Android Command Line Tools
+      - name: Fix sdkmanager Path Issue (CRITICAL)
         run: |
-          mkdir -p $HOME/android-sdk/cmdline-tools
-          cd $HOME/android-sdk/cmdline-tools
+          # Setup buildozer android platform directory
+          mkdir -p $HOME/.buildozer/android/platform
+          
+          # Download fresh Android SDK
+          cd $HOME/.buildozer/android/platform
+          
+          # Create android-sdk directory
+          mkdir -p android-sdk
+          cd android-sdk
+          
+          # Download command line tools
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
           unzip -q commandlinetools-linux-11076708_latest.zip
-          mv cmdline-tools latest
-          rm -f commandlinetools-linux-11076708_latest.zip
-          chmod +x $HOME/android-sdk/cmdline-tools/latest/bin/*
+          
+          # Create tools/bin directory (where buildozer looks)
+          mkdir -p cmdline-tools/latest
+          mv cmdline-tools latest 2>/dev/null || mv cmdline-tools/* cmdline-tools/latest/ 2>/dev/null || true
+          
+          # CRITICAL: Create tools/bin/sdkmanager symlink
+          mkdir -p tools/bin
+          
+          # Find sdkmanager and create symlink
+          if [ -f "$HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager" ]; then
+            ln -sf $HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager $HOME/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager
+            ln -sf $HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/avdmanager $HOME/.buildozer/android/platform/android-sdk/tools/bin/avdmanager
+          fi
+          
+          # Copy whole cmdline-tools to tools folder as fallback
+          if [ -d "$HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest" ]; then
+            mkdir -p $HOME/.buildozer/android/platform/android-sdk/tools/cmdline-tools
+            cp -r $HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest/* $HOME/.buildozer/android/platform/android-sdk/tools/ 2>/dev/null || true
+          fi
+          
+          # Setup licenses
+          mkdir -p $HOME/.buildozer/android/platform/android-sdk/licenses
+          echo -e "\n8933bad161af4178b1185d1a37fbf41ea5269c55\nd56f5187479451eabf01fb78af6dfcb131a6481e\n24333f8a63b6825ea9c5514f83c2829b004d1fee\n84831b9409646a918e30573bab4c9c91346d8abd" > $HOME/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
+          echo -e "\n504667f4c0de7af1a06de9f4b1727b84351f2910" > $HOME/.buildozer/android/platform/android-sdk/licenses/android-sdk-preview-license
+          echo -e "\n601085b94cd77f0b54ff86406957099ebe79c4d6" > $HOME/.buildozer/android/platform/android-sdk/licenses/android-googletv-license
+          echo -e "\n33b6a2b64607f11b759f320ef9dff4ae5c47d97a" > $HOME/.buildozer/android/platform/android-sdk/licenses/android-googletv-license
+          echo -e "\n859f317696f67ef3d7f30a50a5560e7834b43903" > $HOME/.buildozer/android/platform/android-sdk/licenses/android-sdk-arm-dbt-license
+          echo -e "\n6d49a82f8da8c2aa5ba69fa4b2e0f8e1e85d52cd" > $HOME/.buildozer/android/platform/android-sdk/licenses/mips-android-sysimage-license
+          echo -e "\n33b6a2b64607f11b759f320ef9dff4ae5c47d97a" > $HOME/.buildozer/android/platform/android-sdk/licenses/google-gdk-license
+          echo -e "\n859f317696f67ef3d7f30a50a5560e7834b43903" > $HOME/.buildozer/android/platform/android-sdk/licenses/intel-android-extra-license
+          
+          # Accept licenses
+          chmod +x $HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager
+          yes | $HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses --sdk_root=$HOME/.buildozer/android/platform/android-sdk || true
+          
+          # Install required tools
+          yes | $HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;33.0.2" "platforms;android-33" "platform-tools" --sdk_root=$HOME/.buildozer/android/platform/android-sdk || true
+          
+          # Verify
+          echo "=== sdkmanager location ==="
+          ls -la $HOME/.buildozer/android/platform/android-sdk/tools/bin/ || echo "tools/bin not found"
+          echo ""
+          echo "=== sdkmanager test ==="
+          $HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager --version || echo "sdkmanager failed"
       
-      - name: Setup Android SDK Environment
-        run: |
-          export ANDROID_HOME=$HOME/android-sdk
-          export ANDROID_SDK_ROOT=$HOME/android-sdk
-          export PATH=$PATH:$HOME/android-sdk/cmdline-tools/latest/bin
-          
-          # Accept all licenses
-          yes | sdkmanager --licenses --sdk_root=$HOME/android-sdk || true
-          
-          # Install build tools and platform
-          sdkmanager "build-tools;33.0.2" --sdk_root=$HOME/android-sdk || true
-          sdkmanager "platforms;android-33" --sdk_root=$HOME/android-sdk || true
-          sdkmanager "platform-tools" --sdk_root=$HOME/android-sdk || true
-          
-          # Save env for next steps
-          echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
-          echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
-          echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
-      
-      - name: Setup Buildozer Config
+      - name: Create buildozer.spec
         run: |
           cd frontend
           cat > buildozer.spec << 'EOF'
@@ -95,7 +122,7 @@ jobs:
           android.private_storage = True
           android.accept_sdk_license = True
           android.bootstrap = sdl2
-          android.sdk_path = /home/runner/android-sdk
+          android.sdk_path = /home/runner/.buildozer/android/platform/android-sdk
           
           [python]
           source.include_py = main.py
@@ -106,20 +133,24 @@ jobs:
           EOF
           cat buildozer.spec
       
-      - name: Copy SDK to Buildozer Path
+      - name: Pre-build SDK Check
         run: |
-          mkdir -p $HOME/.buildozer/android/platform
-          ln -sf $HOME/android-sdk $HOME/.buildozer/android/platform/android-sdk
-          echo "=== SDK Link ==="
-          ls -la $HOME/.buildozer/android/platform/
+          echo "=== Final verification ==="
+          echo "SDK path: $HOME/.buildozer/android/platform/android-sdk"
+          ls -la $HOME/.buildozer/android/platform/android-sdk/tools/bin/
+          echo ""
+          echo "PATH: $PATH"
+          export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
+          echo "ANDROID_HOME: $ANDROID_HOME"
       
       - name: Build APK
+        env:
+          ANDROID_HOME: /home/runner/.buildozer/android/platform/android-sdk
+          ANDROID_SDK_ROOT: /home/runner/.buildozer/android/platform/android-sdk
+          PATH: /home/runner/.buildozer/android/platform/android-sdk/tools/bin:/home/runner/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
         run: |
           cd frontend
-          export ANDROID_HOME=$HOME/android-sdk
-          export ANDROID_SDK_ROOT=$HOME/android-sdk
-          export PATH=$PATH:$HOME/android-sdk/cmdline-tools/latest/bin
-          buildozer -v android debug
+          buildozer -v android debug 2>&1 | tee build.log
       
       - name: Upload APK
         if: always()
@@ -129,8 +160,8 @@ jobs:
           path: frontend/bin/*.apk
           if-no-files-found: warn
       
-      - name: List Output
-        if: always()
+      - name: Show Build Log (on failure)
+        if: failure()
         run: |
-          echo "=== APK Files ==="
-          ls -la frontend/bin/ || echo "No bin folder"
+          echo "=== BUILD LOG (last 100 lines) ==="
+          tail -100 frontend/build.log || echo "No build log"
