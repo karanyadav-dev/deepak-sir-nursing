@@ -31,74 +31,70 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            build-essential \
-            git \
-            zip \
-            unzip \
-            openjdk-17-jdk \
-            autoconf \
-            libtool \
-            pkg-config \
-            zlib1g-dev \
-            libncurses-dev \
-            cmake \
-            libffi-dev \
-            libssl-dev \
-            ccache \
-            python3-dev
+            build-essential git zip unzip \
+            openjdk-17-jdk autoconf libtool \
+            pkg-config zlib1g-dev libncurses-dev \
+            cmake libffi-dev libssl-dev ccache
       
       - name: Install Python Dependencies
         run: |
           pip install --upgrade pip
           pip install buildozer==1.5.0 cython==0.29.33
       
-      - name: Setup Android SDK (Complete)
+      - name: Download Android SDK
         run: |
-          # Create SDK directory
-          mkdir -p $HOME/android-sdk
+          mkdir -p $HOME/android-sdk/cmdline-tools
           cd $HOME/android-sdk
           
-          # Download Android command line tools
+          # Download
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
-          unzip -q commandlinetools-linux-11076708_latest.zip
+          
+          # Extract into temp folder
+          unzip -q commandlinetools-linux-11076708_latest.zip -d cmdline-tools-temp
+          
+          # ZIP ka structure: cmdline-tools/cmdline-tools
+          # Move it to proper location
+          mv cmdline-tools-temp/cmdline-tools $HOME/android-sdk/cmdline-tools/latest
+          
+          # Cleanup
+          rm -rf cmdline-tools-temp
           rm -f commandlinetools-linux-11076708_latest.zip
           
-          # Setup proper directory structure
-          mkdir -p cmdline-tools
-          mv cmdline-tools latest
-          mv latest cmdline-tools/latest
-          chmod +x cmdline-tools/latest/bin/*
+          # Make executable
+          chmod +x $HOME/android-sdk/cmdline-tools/latest/bin/*
           
-          # Set environment
+          # Verify
+          echo "=== Structure ==="
+          ls -la $HOME/android-sdk/cmdline-tools/latest/bin/
+      
+      - name: Setup Android SDK
+        run: |
           export ANDROID_HOME=$HOME/android-sdk
           export ANDROID_SDK_ROOT=$HOME/android-sdk
           export PATH=$PATH:$HOME/android-sdk/cmdline-tools/latest/bin
           
-          # Accept all licenses
+          # Accept licenses
           yes | sdkmanager --licenses --sdk_root=$ANDROID_HOME || true
           
-          # Install required packages
+          # Install packages
           sdkmanager "platform-tools" --sdk_root=$ANDROID_HOME || true
           sdkmanager "platforms;android-33" --sdk_root=$ANDROID_HOME || true
           sdkmanager "build-tools;33.0.2" --sdk_root=$ANDROID_HOME || true
           
-          # Create tools/bin/sdkmanager symlink for buildozer
-          mkdir -p $HOME/android-sdk/tools/bin
-          ln -sf $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager $HOME/android-sdk/tools/bin/sdkmanager
-          
-          # Create buildozer symlink
+          # Setup for buildozer
           mkdir -p $HOME/.buildozer/android/platform
           ln -sf $HOME/android-sdk $HOME/.buildozer/android/platform/android-sdk
           
+          # Create tools/bin symlink
+          mkdir -p $HOME/android-sdk/tools/bin
+          ln -sf $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager $HOME/android-sdk/tools/bin/sdkmanager
+          
           # Verify
           echo "=== SDK Contents ==="
-          ls -la $HOME/android-sdk/
+          ls -la $ANDROID_HOME/
           echo ""
-          echo "=== Build Tools ==="
-          ls -la $HOME/android-sdk/build-tools/ || echo "no build-tools"
-          echo ""
-          echo "=== sdkmanager ==="
-          $HOME/android-sdk/tools/bin/sdkmanager --version || echo "sdkmanager not working"
+          echo "=== Build tools ==="
+          ls -la $ANDROID_HOME/build-tools/ 2>/dev/null || echo "no build-tools"
       
       - name: Create buildozer.spec
         run: |
@@ -114,10 +110,9 @@ jobs:
           requirements = python3,kivy==2.2.1,kivymd==1.1.1,cython==0.29.33,requests,urllib3,chardet,idna,certifi,plyer
           orientation = portrait
           fullscreen = 0
-          icon.filename = %(source.dir)s/app/assets/images/icon.png
           
           [android]
-          permissions = INTERNET,ACCESS_NETWORK_STATE,CAMERA,READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE
+          permissions = INTERNET,ACCESS_NETWORK_STATE,CAMERA
           android.api = 33
           android.minapi = 21
           android.ndk = 25b
@@ -141,15 +136,15 @@ jobs:
         env:
           ANDROID_HOME: /home/runner/android-sdk
           ANDROID_SDK_ROOT: /home/runner/android-sdk
-          PATH: /home/runner/android-sdk/cmdline-tools/latest/bin:/home/runner/android-sdk/tools/bin:/home/runner/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
         run: |
           cd frontend
+          export PATH=$PATH:$HOME/android-sdk/cmdline-tools/latest/bin:$HOME/android-sdk/tools/bin
           buildozer -v android debug 2>&1 | tee build.log || true
           
           echo ""
-          echo "=== Build Complete - Checking Output ==="
-          find /home/runner -name "*.apk" 2>/dev/null || echo "No APK found"
-          ls -la frontend/bin/ 2>/dev/null || echo "No bin folder"
+          echo "=== After Build ==="
+          ls -la frontend/bin/ 2>/dev/null || echo "bin folder nahi bana"
+          find /home/runner -name "*.apk" 2>/dev/null || echo "APK not found"
       
       - name: Upload APK
         if: always()
@@ -168,19 +163,3 @@ jobs:
           name: build-log
           path: frontend/build.log
           if-no-files-found: warn
-      
-      - name: Show Build Summary
-        if: always()
-        run: |
-          echo "================================"
-          echo "BUILD SUMMARY"
-          echo "================================"
-          echo ""
-          echo "=== APK Files Found ==="
-          find /home/runner/work -name "*.apk" 2>/dev/null | head -20 || echo "None"
-          echo ""
-          echo "=== bin folder ==="
-          ls -la /home/runner/work/deepak-sir-nursing/deepak-sir-nursing/frontend/bin/ 2>/dev/null || echo "Empty/Missing"
-          echo ""
-          echo "=== Last 50 lines of build log ==="
-          tail -50 /home/runner/work/deepak-sir-nursing/deepak-sir-nursing/frontend/build.log 2>/dev/null || echo "No log"
