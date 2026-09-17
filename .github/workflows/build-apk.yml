@@ -7,6 +7,8 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  # P4A stable version
+  BUILDOZER_WARN_ON_ROOT: 0
 
 jobs:
   build:
@@ -34,26 +36,26 @@ jobs:
             build-essential git zip unzip \
             openjdk-17-jdk autoconf libtool \
             pkg-config zlib1g-dev libncurses-dev \
-            cmake libffi-dev libssl-dev ccache
+            cmake libffi-dev libssl-dev ccache \
+            libltdl-dev automake
       
       - name: Install Python Dependencies
         run: |
           pip install --upgrade pip
           pip install buildozer==1.5.0 cython==0.29.33
       
-      - name: Download Android SDK
+      - name: Download and Setup Android SDK
         run: |
           mkdir -p $HOME/android-sdk/cmdline-tools
           cd $HOME/android-sdk
           
-          # Download
+          # Download command line tools
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
           
           # Extract into temp folder
           unzip -q commandlinetools-linux-11076708_latest.zip -d cmdline-tools-temp
           
-          # ZIP ka structure: cmdline-tools/cmdline-tools
-          # Move it to proper location
+          # ZIP structure: cmdline-tools/cmdline-tools
           mv cmdline-tools-temp/cmdline-tools $HOME/android-sdk/cmdline-tools/latest
           
           # Cleanup
@@ -64,10 +66,9 @@ jobs:
           chmod +x $HOME/android-sdk/cmdline-tools/latest/bin/*
           
           # Verify
-          echo "=== Structure ==="
           ls -la $HOME/android-sdk/cmdline-tools/latest/bin/
       
-      - name: Setup Android SDK
+      - name: Setup Android SDK & Licenses
         run: |
           export ANDROID_HOME=$HOME/android-sdk
           export ANDROID_SDK_ROOT=$HOME/android-sdk
@@ -81,22 +82,21 @@ jobs:
           sdkmanager "platforms;android-33" --sdk_root=$ANDROID_HOME || true
           sdkmanager "build-tools;33.0.2" --sdk_root=$ANDROID_HOME || true
           
-          # Setup for buildozer
+          # Setup buildozer path
           mkdir -p $HOME/.buildozer/android/platform
           ln -sf $HOME/android-sdk $HOME/.buildozer/android/platform/android-sdk
           
-          # Create tools/bin symlink
+          # Create tools/bin symlink (buildozer expects this)
           mkdir -p $HOME/android-sdk/tools/bin
           ln -sf $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager $HOME/android-sdk/tools/bin/sdkmanager
+          ln -sf $HOME/android-sdk/cmdline-tools/latest/bin/avdmanager $HOME/android-sdk/tools/bin/avdmanager
           
           # Verify
-          echo "=== SDK Contents ==="
           ls -la $ANDROID_HOME/
-          echo ""
-          echo "=== Build tools ==="
-          ls -la $ANDROID_HOME/build-tools/ 2>/dev/null || echo "no build-tools"
+          echo "--- Build tools ---"
+          ls -la $ANDROID_HOME/build-tools/ || echo "no build-tools"
       
-      - name: Create buildozer.spec
+      - name: Create buildozer.spec (Fixed)
         run: |
           cd frontend
           cat > buildozer.spec << 'EOF'
@@ -113,7 +113,7 @@ jobs:
           
           [android]
           permissions = INTERNET,ACCESS_NETWORK_STATE,CAMERA
-          android.api = 33
+          android.api = 30
           android.minapi = 21
           android.ndk = 25b
           android.arch = arm64-v8a
@@ -122,29 +122,45 @@ jobs:
           android.accept_sdk_license = True
           android.bootstrap = sdl2
           android.sdk_path = /home/runner/.buildozer/android/platform/android-sdk
+          android.ndk_path = /home/runner/.buildozer/android/platform
+          p4a.branch = v2023.09.30
           
           [python]
           source.include_py = main.py
           
           [buildozer]
           log_level = 2
-          warn_on_root = 1
+          warn_on_root = 0
           EOF
           cat buildozer.spec
       
       - name: Build APK
+        id: build
+        continue-on-error: true
         env:
           ANDROID_HOME: /home/runner/android-sdk
           ANDROID_SDK_ROOT: /home/runner/android-sdk
+          BUILDOZER_WARN_ON_ROOT: 0
         run: |
           cd frontend
           export PATH=$PATH:$HOME/android-sdk/cmdline-tools/latest/bin:$HOME/android-sdk/tools/bin
-          buildozer -v android debug 2>&1 | tee build.log || true
-          
+          buildozer -v android debug 2>&1 | tee build.log
+          echo "BUILD_EXIT=$?" >> $GITHUB_OUTPUT
+      
+      - name: Check Build Output
+        if: always()
+        run: |
+          echo "=== Build Exit Code ==="
+          echo "${{ steps.build.outputs.BUILD_EXIT }}"
           echo ""
-          echo "=== After Build ==="
-          ls -la frontend/bin/ 2>/dev/null || echo "bin folder nahi bana"
-          find /home/runner -name "*.apk" 2>/dev/null || echo "APK not found"
+          echo "=== APK Search ==="
+          find /home/runner -name "*.apk" 2>/dev/null || echo "❌ No APK found"
+          echo ""
+          echo "=== bin folder ==="
+          ls -la frontend/bin/ 2>/dev/null || echo "❌ No bin folder"
+          echo ""
+          echo "=== Last 100 lines of build log ==="
+          tail -100 frontend/build.log 2>/dev/null || echo "❌ No log"
       
       - name: Upload APK
         if: always()
