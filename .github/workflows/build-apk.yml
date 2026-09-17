@@ -30,89 +30,75 @@ jobs:
       - name: Install System Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential git zip unzip openjdk-17-jdk autoconf libtool pkg-config zlib1g-dev libncurses-dev cmake libffi-dev libssl-dev ccache
+          sudo apt-get install -y \
+            build-essential \
+            git \
+            zip \
+            unzip \
+            openjdk-17-jdk \
+            autoconf \
+            libtool \
+            pkg-config \
+            zlib1g-dev \
+            libncurses-dev \
+            cmake \
+            libffi-dev \
+            libssl-dev \
+            ccache \
+            python3-dev
       
       - name: Install Python Dependencies
         run: |
           pip install --upgrade pip
           pip install buildozer==1.5.0 cython==0.29.33
       
-      - name: Download Android SDK
+      - name: Setup Android SDK (Complete)
         run: |
           # Create SDK directory
           mkdir -p $HOME/android-sdk
           cd $HOME/android-sdk
           
-          # Download command line tools
+          # Download Android command line tools
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
-          
-          # Extract
           unzip -q commandlinetools-linux-11076708_latest.zip
           rm -f commandlinetools-linux-11076708_latest.zip
           
-          # Show what we got
-          echo "=== After extract ==="
-          ls -la
-          echo ""
-          ls -la cmdline-tools/
-      
-      - name: Setup SDK Tools Path
-        run: |
-          cd $HOME/android-sdk
-          
-          # Rename cmdline-tools to latest
-          mv cmdline-tools latest
-          
-          # Create cmdline-tools structure
+          # Setup proper directory structure
           mkdir -p cmdline-tools
+          mv cmdline-tools latest
           mv latest cmdline-tools/latest
+          chmod +x cmdline-tools/latest/bin/*
           
-          # Verify
-          echo "=== cmdline-tools structure ==="
-          ls -la cmdline-tools/latest/bin/
-      
-      - name: Accept Licenses and Install Tools
-        run: |
+          # Set environment
           export ANDROID_HOME=$HOME/android-sdk
           export ANDROID_SDK_ROOT=$HOME/android-sdk
           export PATH=$PATH:$HOME/android-sdk/cmdline-tools/latest/bin
           
-          # Accept licenses
+          # Accept all licenses
           yes | sdkmanager --licenses --sdk_root=$ANDROID_HOME || true
           
-          # Install build tools and platform
+          # Install required packages
           sdkmanager "platform-tools" --sdk_root=$ANDROID_HOME || true
           sdkmanager "platforms;android-33" --sdk_root=$ANDROID_HOME || true
           sdkmanager "build-tools;33.0.2" --sdk_root=$ANDROID_HOME || true
           
-          # Verify
-          echo "=== SDK contents ==="
-          ls -la $ANDROID_HOME/
-          echo ""
-          echo "=== Build tools ==="
-          ls -la $ANDROID_HOME/build-tools/ || echo "no build-tools"
-      
-      - name: Link SDK to Buildozer Path
-        run: |
-          # Buildozer looks here
-          mkdir -p $HOME/.buildozer/android/platform
-          
-          # Create symlink
-          ln -sf $HOME/android-sdk $HOME/.buildozer/android/platform/android-sdk
-          
-          # Now create tools/bin/sdkmanager for buildozer
+          # Create tools/bin/sdkmanager symlink for buildozer
           mkdir -p $HOME/android-sdk/tools/bin
           ln -sf $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager $HOME/android-sdk/tools/bin/sdkmanager
           
+          # Create buildozer symlink
+          mkdir -p $HOME/.buildozer/android/platform
+          ln -sf $HOME/android-sdk $HOME/.buildozer/android/platform/android-sdk
+          
           # Verify
-          echo "=== Buildozer SDK path ==="
-          ls -la $HOME/.buildozer/android/platform/android-sdk/
+          echo "=== SDK Contents ==="
+          ls -la $HOME/android-sdk/
           echo ""
-          echo "=== tools/bin ==="
-          ls -la $HOME/android-sdk/tools/bin/
+          echo "=== Build Tools ==="
+          ls -la $HOME/android-sdk/build-tools/ || echo "no build-tools"
           echo ""
-          echo "=== sdkmanager check ==="
-          $HOME/android-sdk/tools/bin/sdkmanager --version || true
+          echo "=== sdkmanager ==="
+          $HOME/android-sdk/tools/bin/sdkmanager --version || echo "sdkmanager not working"
       
       - name: Create buildozer.spec
         run: |
@@ -128,9 +114,10 @@ jobs:
           requirements = python3,kivy==2.2.1,kivymd==1.1.1,cython==0.29.33,requests,urllib3,chardet,idna,certifi,plyer
           orientation = portrait
           fullscreen = 0
+          icon.filename = %(source.dir)s/app/assets/images/icon.png
           
           [android]
-          permissions = INTERNET,ACCESS_NETWORK_STATE,CAMERA
+          permissions = INTERNET,ACCESS_NETWORK_STATE,CAMERA,READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE
           android.api = 33
           android.minapi = 21
           android.ndk = 25b
@@ -154,21 +141,46 @@ jobs:
         env:
           ANDROID_HOME: /home/runner/android-sdk
           ANDROID_SDK_ROOT: /home/runner/android-sdk
+          PATH: /home/runner/android-sdk/cmdline-tools/latest/bin:/home/runner/android-sdk/tools/bin:/home/runner/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
         run: |
           cd frontend
-          export PATH=$PATH:$HOME/android-sdk/cmdline-tools/latest/bin:$HOME/android-sdk/tools/bin
-          buildozer -v android debug 2>&1 | tee build.log
+          buildozer -v android debug 2>&1 | tee build.log || true
+          
+          echo ""
+          echo "=== Build Complete - Checking Output ==="
+          find /home/runner -name "*.apk" 2>/dev/null || echo "No APK found"
+          ls -la frontend/bin/ 2>/dev/null || echo "No bin folder"
       
       - name: Upload APK
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: deepaksir-apk
-          path: frontend/bin/*.apk
+          path: |
+            frontend/bin/*.apk
+            **/*.apk
           if-no-files-found: warn
       
-      - name: Show Build Log
-        if: failure()
+      - name: Upload Build Log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: frontend/build.log
+          if-no-files-found: warn
+      
+      - name: Show Build Summary
+        if: always()
         run: |
-          echo "=== Last 100 lines of build log ==="
-          tail -100 frontend/build.log || echo "No build log found"
+          echo "================================"
+          echo "BUILD SUMMARY"
+          echo "================================"
+          echo ""
+          echo "=== APK Files Found ==="
+          find /home/runner/work -name "*.apk" 2>/dev/null | head -20 || echo "None"
+          echo ""
+          echo "=== bin folder ==="
+          ls -la /home/runner/work/deepak-sir-nursing/deepak-sir-nursing/frontend/bin/ 2>/dev/null || echo "Empty/Missing"
+          echo ""
+          echo "=== Last 50 lines of build log ==="
+          tail -50 /home/runner/work/deepak-sir-nursing/deepak-sir-nursing/frontend/build.log 2>/dev/null || echo "No log"
