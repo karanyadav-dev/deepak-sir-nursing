@@ -27,54 +27,110 @@ jobs:
       - name: Install system packages
         run: |
           sudo apt update
-          sudo apt install -y \
-            git zip unzip openjdk-17-jdk \
-            autoconf libtool pkg-config \
-            zlib1g-dev libncurses5-dev libncursesw5-dev \
-            libtinfo5 cmake libffi-dev libssl-dev \
-            build-essential ccache
+          sudo apt install -y git zip unzip openjdk-17-jdk autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev build-essential ccache
       
       - name: Install buildozer
         run: |
           pip install --upgrade pip
           pip install buildozer==1.5.0 cython==0.29.33
       
+      - name: Pre-accept Android SDK licenses
+        run: |
+          # Buildozer ke path par licenses folder banao
+          mkdir -p $HOME/.buildozer/android/platform/android-sdk/licenses
+          
+          # All Android SDK licenses
+          echo -e "\n8933bad161af4178b1185d1a37fbf41ea5269c55\nd56f5187479451eabf01fb78af6dfcb131a6481e\n24333f8a63b6825ea9c5514f83c2829b004d1fee" > $HOME/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
+          echo -e "\n84831b9409646a918e30573bab4c9c91346d8abd" > $HOME/.buildozer/android/platform/android-sdk/licenses/android-sdk-preview-license
+          echo -e "\n504667f4c0de7af1a06de9f4b1727b84351f2910" > $HOME/.buildozer/android/platform/android-sdk/licenses/android-sdk-preview-license
+          echo -e "\n33b6a2b64607f11b759f320ef9dff4ae5c47d97a" > $HOME/.buildozer/android/platform/android-sdk/licenses/intel-android-extra-license
+          echo -e "\n601085b94cd77f0b54ff86406957099ebe79c4d6" > $HOME/.buildozer/android/platform/android-sdk/licenses/android-googletv-license
+          echo -e "\n859f317696f67ef3d7f30a50a5560e7834b43903" > $HOME/.buildozer/android/platform/android-sdk/licenses/google-gdk-license
+          echo -e "\n6d49a82f8da8c2aa5ba69fa4b2e0f8e1e85d52cd" > $HOME/.buildozer/android/platform/android-sdk/licenses/mips-android-sysimage-license
+          echo -e "\n24333f8a63b6825ea9c5514f83c2829b004d1fee" > $HOME/.buildozer/android/platform/android-sdk/licenses/android-sdk-arm-dbt-license
+          
+          echo "✅ Licenses pre-accepted"
+          ls -la $HOME/.buildozer/android/platform/android-sdk/licenses/
+      
       - name: Update buildozer.spec
         run: |
           cd frontend
-          python3 -c "
-          import re
-          with open('buildozer.spec', 'r') as f:
-              content = f.read()
+          cat > buildozer.spec << 'EOF'
+          [app]
+          title = Deepak Sir Nursing
+          package.name = deepaksir
+          package.domain = com.deepaksir
+          source.dir = .
+          source.include_exts = py,png,jpg,kv,atlas,ttf,json
+          version = 1.0.0
+          requirements = python3,kivy==2.2.1,kivymd==1.1.1,cython==0.29.33,requests,urllib3,chardet,idna,certifi,plyer
+          orientation = portrait
+          fullscreen = 0
           
-          # Force set requirements
-          content = re.sub(
-              r'^requirements\s*=.*$',
-              'requirements = python3,kivy==2.2.1,kivymd==1.1.1,cython==0.29.33,requests,urllib3,chardet,idna,certifi,plyer',
-              content,
-              flags=re.MULTILINE
-          )
+          [android]
+          permissions = INTERNET,ACCESS_NETWORK_STATE,CAMERA
+          android.api = 30
+          android.minapi = 21
+          android.ndk = 25b
+          android.arch = arm64-v8a
+          android.entrypoint = org.kivy.android.PythonActivity
+          android.private_storage = True
+          android.accept_sdk_license = True
+          android.bootstrap = sdl2
+          android.build_tools_version = 30.0.3
+          android.sdk_path = /home/runner/.buildozer/android/platform/android-sdk
+          android.ndk_path = /home/runner/.buildozer/android/platform
           
-          # Force set API level
-          content = re.sub(
-              r'^android\.api\s*=.*$',
-              'android.api = 30',
-              content,
-              flags=re.MULTILINE
-          )
+          [python]
+          source.include_py = main.py
           
-          # Force accept license
-          if 'android.accept_sdk_license' not in content:
-              content += '\nandroid.accept_sdk_license = True\n'
+          [buildozer]
+          log_level = 2
+          warn_on_root = 0
+          EOF
+          cat buildozer.spec
+      
+      - name: Pre-install Android SDK tools
+        run: |
+          # SDK setup
+          mkdir -p $HOME/.buildozer/android/platform/android-sdk
+          cd $HOME/.buildozer/android/platform/android-sdk
           
-          with open('buildozer.spec', 'w') as f:
-              f.write(content)
+          # Download command line tools
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q commandlinetools-linux-11076708_latest.zip -d cmdline-tools-temp
+          mkdir -p cmdline-tools
+          mv cmdline-tools-temp/cmdline-tools cmdline-tools/latest
+          rm -rf cmdline-tools-temp commandlinetools-linux-11076708_latest.zip
+          chmod +x cmdline-tools/latest/bin/*
           
-          print('Updated buildozer.spec:')
-          print(content)
-          "
+          # Setup tools/bin path for buildozer
+          mkdir -p tools/bin
+          ln -sf $PWD/cmdline-tools/latest/bin/sdkmanager tools/bin/sdkmanager
+          ln -sf $PWD/cmdline-tools/latest/bin/avdmanager tools/bin/avdmanager
+          
+          # Install build-tools 30.0.3 and platform-tools
+          export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
+          export PATH=$PATH:$PWD/cmdline-tools/latest/bin
+          
+          yes | sdkmanager --licenses --sdk_root=$ANDROID_HOME
+          sdkmanager "platform-tools" --sdk_root=$ANDROID_HOME
+          sdkmanager "platforms;android-30" --sdk_root=$ANDROID_HOME
+          sdkmanager "build-tools;30.0.3" --sdk_root=$ANDROID_HOME
+          
+          # Verify
+          echo "=== SDK Contents ==="
+          ls -la $ANDROID_HOME/
+          echo "=== Build Tools ==="
+          ls -la $ANDROID_HOME/build-tools/
+          echo "=== AIDL check ==="
+          ls -la $ANDROID_HOME/build-tools/30.0.3/aidl || echo "aidl not found"
       
       - name: Build APK
+        env:
+          ANDROID_HOME: /home/runner/.buildozer/android/platform/android-sdk
+          ANDROID_SDK_ROOT: /home/runner/.buildozer/android/platform/android-sdk
+          PATH: /home/runner/.buildozer/android/platform/android-sdk/tools/bin:/home/runner/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin:/home/runner/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
         run: |
           cd frontend
           buildozer android debug 2>&1 | tee build_output.log
@@ -84,7 +140,7 @@ jobs:
         run: |
           echo "=== Searching for APK ==="
           find . -name "*.apk" 2>/dev/null
-          ls -la frontend/bin/ 2>/dev/null || echo "bin folder check"
+          ls -la frontend/bin/ 2>/dev/null || echo "bin folder empty"
       
       - name: Upload APK
         if: always()
